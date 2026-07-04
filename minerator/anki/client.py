@@ -18,8 +18,10 @@ class AnkiClient:
             response = self._client.post(self._url, json=payload)
             response.raise_for_status()
             data = response.json()
-        except httpx.HTTPError as exc:
+        except (httpx.HTTPError, ValueError) as exc:
             raise AnkiConnectError(f"AnkiConnect request failed: {exc}") from exc
+        if not isinstance(data, dict):
+            raise AnkiConnectError(f"unexpected AnkiConnect response: {data!r}")
         if data.get("error") is not None:
             raise AnkiConnectError(str(data["error"]))
         return data.get("result")
@@ -53,4 +55,7 @@ class AnkiClient:
             "tags": tags or [],
             "options": {"allowDuplicate": False},
         }
-        return int(self._invoke("addNote", note=note))
+        result = self._invoke("addNote", note=note)
+        if result is None:
+            raise AnkiConnectError("AnkiConnect returned no note id for addNote")
+        return int(result)

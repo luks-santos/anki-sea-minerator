@@ -54,3 +54,25 @@ def test_ping_true_on_version():
         return httpx.Response(200, json={"result": 6, "error": None})
 
     assert make_client(handler).ping() is True
+
+
+def test_add_note_raises_when_result_is_null_without_error():
+    def handler(request):
+        return httpx.Response(200, json={"result": None, "error": None})
+
+    with pytest.raises(AnkiConnectError):
+        make_client(handler).add_note(deck="English", model="Básico", fields={})
+
+
+def test_ping_false_on_non_json_response():
+    def handler(request):
+        return httpx.Response(200, content=b"not json")
+
+    assert make_client(handler).ping() is False
+
+
+def test_ping_false_on_non_dict_json_response():
+    def handler(request):
+        return httpx.Response(200, json=["Default", "English"])
+
+    assert make_client(handler).ping() is False
