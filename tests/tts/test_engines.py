@@ -11,7 +11,17 @@ def test_factory_returns_edge():
 
 
 def test_factory_returns_gtts():
-    assert isinstance(get_engine("gtts", "ignored"), GttsTTS)
+    assert isinstance(get_engine("gtts", "en-US-EmmaNeural"), GttsTTS)
+
+
+def test_factory_derives_gtts_lang_from_voice_prefix():
+    engine = get_engine("gtts", "pt-BR-FranciscaNeural")
+    assert engine._lang == "pt"
+
+
+def test_factory_gtts_defaults_to_english_when_voice_is_empty():
+    engine = get_engine("gtts", "")
+    assert engine._lang == "en"
 
 
 def test_factory_rejects_unknown():

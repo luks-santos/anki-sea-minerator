@@ -14,5 +14,6 @@ def get_engine(name: str, voice: str) -> TTSEngine:
     if name == "edge":
         return EdgeTTS(voice)
     if name == "gtts":
-        return GttsTTS()
+        lang = voice.split("-")[0].lower() if voice else "en"
+        return GttsTTS(lang=lang)
     raise ValueError(f"unknown TTS engine: {name}")
