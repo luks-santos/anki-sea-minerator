@@ -29,7 +29,7 @@ def config_path() -> Path:
     return Path(user_config_dir(APP_NAME)) / "config.toml"
 
 
-def load_config(path: Path | None = None) -> Config:
+def load_config(path: Path | None = None, use_env: bool = True) -> Config:
     path = path or config_path()
     data: dict = {}
     if path.is_file():
@@ -37,9 +37,10 @@ def load_config(path: Path | None = None) -> Config:
             data = tomllib.load(fh)
     known = {f: data[f] for f in Config().__dict__ if f in data}
     cfg = Config(**known)
-    env_key = os.environ.get("GEMINI_API_KEY")
-    if env_key:
-        cfg.gemini_api_key = env_key
+    if use_env:
+        env_key = os.environ.get("GEMINI_API_KEY")
+        if env_key:
+            cfg.gemini_api_key = env_key
     return cfg
 
 

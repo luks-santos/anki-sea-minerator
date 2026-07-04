@@ -12,7 +12,8 @@ def test_defaults_match_spec():
     assert cfg.highlight_color == "#2563eb"
 
 
-def test_save_then_load_roundtrip(tmp_path):
+def test_save_then_load_roundtrip(tmp_path, monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     path = tmp_path / "config.toml"
     cfg = Config(gemini_api_key="k123", default_deck="English::Mining")
     save_config(cfg, path)
@@ -22,7 +23,8 @@ def test_save_then_load_roundtrip(tmp_path):
     assert loaded.model == "gemini-2.5-flash"
 
 
-def test_load_missing_file_returns_defaults(tmp_path):
+def test_load_missing_file_returns_defaults(tmp_path, monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     cfg = load_config(tmp_path / "absent.toml")
     assert cfg == Config()
 
@@ -32,3 +34,10 @@ def test_env_overrides_api_key(tmp_path, monkeypatch):
     save_config(Config(gemini_api_key="from-file"), path)
     monkeypatch.setenv("GEMINI_API_KEY", "from-env")
     assert load_config(path).gemini_api_key == "from-env"
+
+
+def test_use_env_false_ignores_env_override(tmp_path, monkeypatch):
+    path = tmp_path / "config.toml"
+    save_config(Config(gemini_api_key="from-file"), path)
+    monkeypatch.setenv("GEMINI_API_KEY", "from-env")
+    assert load_config(path, use_env=False).gemini_api_key == "from-file"
