@@ -3,6 +3,9 @@ name = "anki-sea-minerator"
 version = "0.1.0"
 description = "Mine English vocabulary into Anki flashcards with AI"
 requires-python = ">=3.11"
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+]
 dependencies = [
     "typer>=0.12",
     "rich>=13",
