@@ -20,7 +20,7 @@ class Config:
     front_field: str = "Frente"
     back_field: str = "Verso"
     tts_engine: str = "edge"
-    tts_voice: str = "en-US-AriaNeural"
+    tts_voice: str = "en-US-EmmaNeural"
     highlight_color: str = "#2563eb"
     prompt_path: str = ""
 

@@ -5,7 +5,7 @@ def test_defaults_match_spec():
     cfg = Config()
     assert cfg.model == "gemini-2.5-flash"
     assert cfg.tts_engine == "edge"
-    assert cfg.tts_voice == "en-US-AriaNeural"
+    assert cfg.tts_voice == "en-US-EmmaNeural"
     assert cfg.note_type == "Básico"
     assert cfg.front_field == "Frente"
     assert cfg.back_field == "Verso"
