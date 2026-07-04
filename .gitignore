@@ -23,6 +23,9 @@ htmlcov/
 .env
 *.local.toml
 
+# Local scratch files (manual testing, not part of the project)
+scratch_*.py
+
 # OS / editor
 .DS_Store
 Thumbs.db
