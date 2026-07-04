@@ -29,6 +29,11 @@ class FailingTTS:
         raise RuntimeError("tts down")
 
 
+class FailingAddNoteAnki(FakeAnki):
+    def add_note(self, deck, model, fields, tags=None):
+        raise RuntimeError("AnkiConnect: deck not found")
+
+
 def make_word():
     return WordBlock(
         expression="give up", explanation="", translations=["Desistir"],
@@ -74,3 +79,14 @@ def test_create_card_warns_when_highlight_missing():
     assert result.created is True
     assert result.warning is not None
     assert "<span" not in anki.notes[0]["fields"]["Frente"]
+
+
+def test_create_card_survives_add_note_failure_with_warning():
+    anki = FailingAddNoteAnki()
+    sentence = Sentence(text="Never give up.", highlight="give up")
+    result = create_card(make_word(), sentence, Config(), "English", anki, FakeTTS())
+
+    assert result.created is False
+    assert result.note_id is None
+    assert result.warning is not None
+    assert "deck not found" in result.warning

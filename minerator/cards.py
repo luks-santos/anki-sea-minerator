@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 
 from minerator.models import WordBlock
 
@@ -8,12 +9,12 @@ from minerator.models import WordBlock
 def highlight_html(text: str, highlight: str, color: str) -> str:
     if not highlight:
         return text
-    idx = text.lower().find(highlight.lower())
-    if idx == -1:
+    match = re.search(re.escape(highlight), text, re.IGNORECASE)
+    if not match:
         return text
-    match = text[idx : idx + len(highlight)]
-    span = f'<span style="color:{color}">{match}</span>'
-    return text[:idx] + span + text[idx + len(highlight) :]
+    start, end = match.span()
+    span = f'<span style="color:{color}">{text[start:end]}</span>'
+    return text[:start] + span + text[end:]
 
 
 def audio_filename(text: str) -> str:
@@ -21,15 +22,14 @@ def audio_filename(text: str) -> str:
     return f"minerator-{digest}.mp3"
 
 
-def build_front(
-    sentence_text: str, highlight: str, color: str, audio_file: str | None
-) -> str:
-    html = highlight_html(sentence_text, highlight, color)
+def build_front(highlighted_text: str, audio_file: str | None) -> str:
     if audio_file:
-        html = f"{html} [sound:{audio_file}]"
-    return html
+        return f"{highlighted_text} [sound:{audio_file}]"
+    return highlighted_text
 
 
 def build_back(word: WordBlock) -> str:
     translations = ", ".join(word.translations)
-    return f"{word.expression.capitalize()}: {translations} ({word.grammar_class})"
+    expression = word.expression
+    capitalized = expression[:1].upper() + expression[1:] if expression else expression
+    return f"{capitalized}: {translations} ({word.grammar_class})"

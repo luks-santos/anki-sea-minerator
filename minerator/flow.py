@@ -32,15 +32,25 @@ def create_card(
             audio_file = None
             warnings.append(f"audio failed: {exc}")
 
-    if sentence.highlight and highlight_html(
-        sentence.text, sentence.highlight, cfg.highlight_color
-    ) == sentence.text:
+    highlighted = highlight_html(sentence.text, sentence.highlight, cfg.highlight_color)
+    if sentence.highlight and highlighted == sentence.text:
         warnings.append(f"highlight '{sentence.highlight}' not found in sentence")
 
-    front = build_front(sentence.text, sentence.highlight, cfg.highlight_color, audio_file)
+    front = build_front(highlighted, audio_file)
     back = build_back(word)
     fields = {cfg.front_field: front, cfg.back_field: back}
-    note_id = anki.add_note(deck, cfg.note_type, fields, tags=["anki-sea-minerator"])
+
+    try:
+        note_id = anki.add_note(deck, cfg.note_type, fields, tags=["anki-sea-minerator"])
+    except Exception as exc:
+        warnings.append(f"card not created: {exc}")
+        return CardResult(
+            expression=word.expression,
+            front=front,
+            created=False,
+            note_id=None,
+            warning="; ".join(warnings),
+        )
 
     return CardResult(
         expression=word.expression,
