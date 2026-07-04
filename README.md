@@ -15,8 +15,11 @@ become cards. For each selected sentence the app builds an Anki note with the
 mined expression highlighted in color and generates the audio (TTS), then inserts
 it into a deck you choose — all through [AnkiConnect](https://ankiweb.net/shared/info/2055492159).
 
-This replaces today's manual flow: prompting a chat LLM, copying sentences one by
-one into Anki, and running AwesomeTTS by hand.
+This automates the repetitive manual work — looking words up in a dictionary or
+prompting a chat LLM, then copying sentences one by one into Anki and running
+AwesomeTTS by hand — while keeping you in control of what actually matters:
+reading each sentence's context and meaning, checking the grammar class, and
+choosing which ones become flashcards.
 
 ## How a card looks
 
