@@ -51,8 +51,10 @@ def config_edit_prompt() -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(DEFAULT_PROMPT, encoding="utf-8")
     if not cfg.prompt_path:
-        cfg.prompt_path = str(path)
-        save_config(cfg, config_path())
+        # Load without the env-sourced API key so it never gets persisted to disk.
+        file_cfg = load_config(config_path(), use_env=False)
+        file_cfg.prompt_path = str(path)
+        save_config(file_cfg, config_path())
     console.print(f"Edit your prompt at: {path}")
 
 
@@ -60,7 +62,10 @@ def _read_words() -> list[str]:
     console.print("Paste your list of the day (one per line, empty line to finish):")
     words: list[str] = []
     while True:
-        line = input().strip()
+        try:
+            line = input().strip()
+        except EOFError:
+            break
         if not line:
             break
         words.append(line)
@@ -82,6 +87,18 @@ def mine() -> None:
         console.print("[red]AnkiConnect not reachable. Open Anki with the add-on.[/red]")
         raise typer.Exit(1)
 
+    if cfg.note_type not in anki.model_names():
+        console.print(f"[red]Note type '{cfg.note_type}' not found in Anki.[/red]")
+        raise typer.Exit(1)
+    note_fields = anki.model_field_names(cfg.note_type)
+    missing_fields = [f for f in (cfg.front_field, cfg.back_field) if f not in note_fields]
+    if missing_fields:
+        console.print(
+            f"[red]Field(s) {', '.join(missing_fields)} not found in note type "
+            f"'{cfg.note_type}'.[/red]"
+        )
+        raise typer.Exit(1)
+
     words = _read_words()
     if not words:
         console.print("Nothing to mine.")
@@ -92,15 +109,30 @@ def mine() -> None:
         "Target deck:", choices=decks,
         default=cfg.default_deck if cfg.default_deck in decks else None,
     ).ask()
+    if deck is None:
+        console.print("Cancelled.")
+        raise typer.Exit(0)
+
+    try:
+        tts = get_engine(cfg.tts_engine, cfg.tts_voice)
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1)
 
     connector = GeminiConnector(cfg.gemini_api_key, cfg.model)
-    blocks = connector.mine(words, load_prompt(cfg.prompt_path))
-    tts = get_engine(cfg.tts_engine, cfg.tts_voice)
+    try:
+        blocks = connector.mine(words, load_prompt(cfg.prompt_path))
+    except Exception as exc:
+        console.print(f"[red]Failed to mine words: {exc}[/red]")
+        raise typer.Exit(1)
 
     total_created = 0
     for block in blocks:
         console.print(f"\n[bold]{block.expression}[/bold] — {block.explanation}")
         console.print(build_back(block))
+        if not block.sentences:
+            console.print(f"[yellow]! no sentences returned for '{block.expression}'[/yellow]")
+            continue
         choices = [
             questionary.Choice(title=f"{s.text}  ({s.note})", value=s) for s in block.sentences
         ]
