@@ -36,8 +36,11 @@ class FailingAddNoteAnki(FakeAnki):
 
 def make_word():
     return WordBlock(
-        expression="give up", explanation="", translations=["Desistir"],
-        grammar_class="Phrasal Verb", sentences=[],
+        expression="give up",
+        explanation="",
+        translations=["Desistir"],
+        grammar_class="Phrasal Verb",
+        sentences=[],
     )
 
 
