@@ -7,9 +7,16 @@ from minerator.ai.gemini import GeminiConnector
 from minerator.anki.client import AnkiClient
 from minerator.config import Config, config_path, load_config, save_config
 from minerator.flow import create_cards_for_selection
+from minerator.models import Sentence, WordBlock
 from minerator.prompt import DEFAULT_PROMPT, load_prompt
 from minerator.tts.base import get_engine
-from minerator.ui import mining_status, read_words, render_block, select_sentences
+from minerator.ui import (
+    creating_cards_status,
+    mining_status,
+    read_words,
+    render_block,
+    select_sentences,
+)
 
 app = typer.Typer(help="Mine English vocabulary into Anki flashcards.")
 config_app = typer.Typer(help="Manage configuration.")
@@ -90,15 +97,6 @@ def mine() -> None:
         console.print("Nothing to mine.")
         raise typer.Exit(0)
 
-    decks = anki.deck_names()
-    deck = questionary.select(
-        "Target deck:", choices=decks,
-        default=cfg.default_deck if cfg.default_deck in decks else None,
-    ).ask()
-    if deck is None:
-        console.print("Cancelled.")
-        raise typer.Exit(0)
-
     try:
         tts = get_engine(cfg.tts_engine, cfg.tts_voice)
     except ValueError as exc:
@@ -113,16 +111,36 @@ def mine() -> None:
         console.print(f"[red]Failed to mine words: {exc}[/red]")
         raise typer.Exit(1)
 
-    total_created = 0
+    pending: list[tuple[WordBlock, list[Sentence]]] = []
     for block in blocks:
         render_block(block)
         if not block.sentences:
             console.print(f"[yellow]! no sentences returned for '{block.expression}'[/yellow]")
             continue
         selected = select_sentences(block)
-        for res in create_cards_for_selection(block, selected, cfg, deck, anki, tts):
-            total_created += 1 if res.created else 0
-            if res.warning:
-                console.print(f"[yellow]! {res.warning}[/yellow]")
+        if selected:
+            pending.append((block, selected))
+
+    total_selected = sum(len(selected) for _, selected in pending)
+    if total_selected == 0:
+        console.print("Nothing to create.")
+        raise typer.Exit(0)
+
+    decks = anki.deck_names()
+    deck = questionary.select(
+        "Target deck:", choices=decks,
+        default=cfg.default_deck if cfg.default_deck in decks else None,
+    ).ask()
+    if deck is None:
+        console.print("Cancelled.")
+        raise typer.Exit(0)
+
+    total_created = 0
+    with creating_cards_status(total_selected):
+        for block, selected in pending:
+            for res in create_cards_for_selection(block, selected, cfg, deck, anki, tts):
+                total_created += 1 if res.created else 0
+                if res.warning:
+                    console.print(f"[yellow]! {res.warning}[/yellow]")
 
     console.print(f"\n[green]Done. Cards created: {total_created}[/green]")

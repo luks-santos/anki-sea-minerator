@@ -85,6 +85,12 @@ def mining_status(word_count: int):
     console.print(f" [mnr.success]✓ {word_count} words mined[/]")
 
 
+@contextmanager
+def creating_cards_status(card_count: int):
+    with console.status(f"[mnr.label]Creating {card_count} card(s)…[/]", spinner="dots"):
+        yield
+
+
 _SKIP = object()
 
 

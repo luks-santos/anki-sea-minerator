@@ -76,6 +76,19 @@ def test_mining_status_reraises_and_skips_summary_on_error():
     assert "mined" not in cap.get()
 
 
+def test_creating_cards_status_runs_body():
+    executed = {"ran": False}
+    with ui.creating_cards_status(2):
+        executed["ran"] = True
+    assert executed["ran"] is True
+
+
+def test_creating_cards_status_reraises_errors():
+    with pytest.raises(ValueError):
+        with ui.creating_cards_status(2):
+            raise ValueError("boom")
+
+
 def test_resolve_selection_checked_wins():
     s1, s2 = Sentence("a", "a"), Sentence("b", "b")
     assert ui._resolve_selection([s1, s2], s1) == [s1, s2]
