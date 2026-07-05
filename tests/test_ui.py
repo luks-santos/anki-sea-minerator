@@ -74,3 +74,48 @@ def test_mining_status_reraises_and_skips_summary_on_error():
             with ui.mining_status(3):
                 raise ValueError("boom")
     assert "mined" not in cap.get()
+
+
+def test_resolve_selection_checked_wins():
+    s1, s2 = Sentence("a", "a"), Sentence("b", "b")
+    assert ui._resolve_selection([s1, s2], s1) == [s1, s2]
+
+
+def test_resolve_selection_empty_uses_pointed_sentence():
+    s1 = Sentence("a", "a")
+    assert ui._resolve_selection([], s1) == [s1]
+
+
+def test_resolve_selection_skip_row_returns_empty():
+    assert ui._resolve_selection([], ui._SKIP) == []
+
+
+def test_resolve_selection_checked_skip_returns_empty():
+    s1 = Sentence("a", "a")
+    assert ui._resolve_selection([ui._SKIP, s1], s1) == []
+
+
+def test_select_sentences_immediate_enter_skips():
+    block = WordBlock("give up", "", [], "", [Sentence("Never give up.", "give up")])
+    with create_pipe_input() as inp:
+        inp.send_text("\r")  # Enter with pointer on the skip row
+        with create_app_session(input=inp, output=DummyOutput()):
+            assert ui.select_sentences(block) == []
+
+
+def test_select_sentences_down_then_enter_picks_pointed():
+    s = Sentence("Never give up.", "give up")
+    block = WordBlock("give up", "", [], "", [s])
+    with create_pipe_input() as inp:
+        inp.send_text("\x1b[B\r")  # Down onto the sentence, then Enter
+        with create_app_session(input=inp, output=DummyOutput()):
+            assert ui.select_sentences(block) == [s]
+
+
+def test_select_sentences_space_toggles_then_enter():
+    s = Sentence("Never give up.", "give up")
+    block = WordBlock("give up", "", [], "", [s])
+    with create_pipe_input() as inp:
+        inp.send_text("\x1b[B \r")  # Down, space (toggle), Enter
+        with create_app_session(input=inp, output=DummyOutput()):
+            assert ui.select_sentences(block) == [s]

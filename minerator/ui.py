@@ -7,11 +7,15 @@ from rich.markup import escape
 from rich.theme import Theme
 
 from prompt_toolkit import PromptSession
+from prompt_toolkit.application import Application
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.keys import Keys
 
+from questionary.prompts.common import Choice, InquirerControl, create_inquirer_layout
+from questionary.styles import merge_styles_default
+
 from minerator.cards import build_back
-from minerator.models import WordBlock
+from minerator.models import Sentence, WordBlock
 
 THEME = Theme(
     {
@@ -79,3 +83,85 @@ def mining_status(word_count: int):
         status.update(f"[mnr.label]Mining {word_count} words…[/]")
         yield
     console.print(f" [mnr.success]✓ {word_count} words mined[/]")
+
+
+_SKIP = object()
+
+
+def _resolve_selection(checked: list, pointed) -> list[Sentence]:
+    if any(value is _SKIP for value in checked):
+        return []
+    real = [value for value in checked if value is not _SKIP]
+    if real:
+        return real
+    if pointed is not _SKIP:
+        return [pointed]
+    return []
+
+
+def select_sentences(block: WordBlock) -> list[Sentence]:
+    choices = [Choice("✗ None (skip this word)", value=_SKIP)]
+    for sentence in block.sentences:
+        title = sentence.text if not sentence.note else f"{sentence.text}   ({sentence.note})"
+        choices.append(Choice(title, value=sentence))
+
+    ic = InquirerControl(choices, None, pointer="❯", show_description=False)
+
+    def get_tokens():
+        return [
+            ("class:question", " Select sentences "),
+            (
+                "class:instruction",
+                "· space toggles · Enter confirms · empty Enter picks the arrowed one",
+            ),
+        ]
+
+    layout = create_inquirer_layout(ic, get_tokens)
+    bindings = KeyBindings()
+
+    @bindings.add(Keys.ControlC, eager=True)
+    @bindings.add(Keys.ControlQ, eager=True)
+    def _abort(event):
+        event.app.exit(exception=KeyboardInterrupt)
+
+    @bindings.add(" ", eager=True)
+    def _toggle(event):
+        value = ic.get_pointed_at().value
+        if value in ic.selected_options:
+            ic.selected_options.remove(value)
+        else:
+            ic.selected_options.append(value)
+
+    def _down(event):
+        ic.select_next()
+        while not ic.is_selection_valid():
+            ic.select_next()
+
+    def _up(event):
+        ic.select_previous()
+        while not ic.is_selection_valid():
+            ic.select_previous()
+
+    bindings.add(Keys.Down, eager=True)(_down)
+    bindings.add(Keys.Up, eager=True)(_up)
+    bindings.add("j", eager=True)(_down)
+    bindings.add("k", eager=True)(_up)
+
+    @bindings.add(Keys.ControlM, eager=True)
+    def _confirm(event):
+        checked = [choice.value for choice in ic.get_selected_values()]
+        pointed = ic.get_pointed_at().value
+        ic.is_answered = True
+        event.app.exit(result=_resolve_selection(checked, pointed))
+
+    @bindings.add(Keys.Any)
+    def _ignore(event):
+        pass
+
+    app: Application = Application(
+        layout=layout, key_bindings=bindings, style=merge_styles_default([])
+    )
+    try:
+        return app.run()
+    except KeyboardInterrupt:
+        return []
