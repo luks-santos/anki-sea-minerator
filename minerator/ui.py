@@ -206,11 +206,13 @@ def select_sentences(block: WordBlock, tts=None) -> list[Sentence]:
         _start_preview_thread(tts, cache, value.text, state, event.app)
 
     def _down(event):
+        state.text = ""
         ic.select_next()
         while not ic.is_selection_valid():
             ic.select_next()
 
     def _up(event):
+        state.text = ""
         ic.select_previous()
         while not ic.is_selection_valid():
             ic.select_previous()
