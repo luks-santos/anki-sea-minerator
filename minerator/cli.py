@@ -137,7 +137,7 @@ def mine() -> None:
                     f"[yellow]! no sentences returned for '{block.expression}'[/yellow]"
                 )
                 continue
-            selected = select_sentences(block)
+            selected = select_sentences(block, tts)
             if not selected:
                 continue
             with creating_cards_status(len(selected)):

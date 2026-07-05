@@ -190,6 +190,113 @@ def test_select_sentences_ctrl_c_raises_keyboard_interrupt():
                 ui.select_sentences(block)
 
 
+def test_fetch_and_play_synthesizes_caches_and_plays(monkeypatch):
+    calls = {"synthesize": 0, "play": []}
+
+    class FakeTTS:
+        def synthesize(self, text):
+            calls["synthesize"] += 1
+            return f"audio-for-{text}".encode()
+
+    monkeypatch.setattr(ui, "play_audio", lambda data: calls["play"].append(data))
+
+    class FakeApp:
+        def __init__(self):
+            self.invalidated = 0
+
+        def invalidate(self):
+            self.invalidated += 1
+
+    cache: dict = {}
+    state = ui._PreviewState()
+    app = FakeApp()
+
+    ui._fetch_and_play(FakeTTS(), cache, "Never give up.", state, app)
+
+    assert calls["synthesize"] == 1
+    assert calls["play"] == [b"audio-for-Never give up."]
+    assert cache["Never give up."] == b"audio-for-Never give up."
+    assert state.text == ""
+    assert state.busy is False
+    assert app.invalidated == 1
+
+
+def test_fetch_and_play_uses_cache_on_second_call(monkeypatch):
+    calls = {"synthesize": 0}
+
+    class FakeTTS:
+        def synthesize(self, text):
+            calls["synthesize"] += 1
+            return b"cached-audio"
+
+    monkeypatch.setattr(ui, "play_audio", lambda data: None)
+
+    class FakeApp:
+        def invalidate(self):
+            pass
+
+    cache = {"Never give up.": b"cached-audio"}
+    state = ui._PreviewState()
+
+    ui._fetch_and_play(FakeTTS(), cache, "Never give up.", state, FakeApp())
+
+    assert calls["synthesize"] == 0
+
+
+def test_fetch_and_play_sets_warning_status_on_failure():
+    class FakeTTS:
+        def synthesize(self, text):
+            raise RuntimeError("network down")
+
+    class FakeApp:
+        def invalidate(self):
+            pass
+
+    cache: dict = {}
+    state = ui._PreviewState()
+
+    ui._fetch_and_play(FakeTTS(), cache, "Never give up.", state, FakeApp())
+
+    assert "failed" in state.text.lower()
+    assert state.busy is False
+
+
+def test_select_sentences_p_previews_pointed_sentence_then_enter_confirms(monkeypatch):
+    def sync_start(tts, cache, text, state, app):
+        ui._fetch_and_play(tts, cache, text, state, app)
+
+    monkeypatch.setattr(ui, "_start_preview_thread", sync_start)
+
+    played = []
+    monkeypatch.setattr(ui, "play_audio", lambda data: played.append(data))
+
+    class FakeTTS:
+        def synthesize(self, text):
+            return f"audio:{text}".encode()
+
+    s = Sentence("Never give up.", "give up")
+    block = WordBlock("give up", "", [], "", [s])
+
+    with create_pipe_input() as inp:
+        inp.send_text("p\r")  # p previews the pointed sentence, then Enter confirms
+        with create_app_session(input=inp, output=DummyOutput()):
+            result = ui.select_sentences(block, FakeTTS())
+
+    assert result == [s]
+    assert played == [b"audio:Never give up."]
+
+
+def test_select_sentences_p_does_nothing_without_tts():
+    s = Sentence("Never give up.", "give up")
+    block = WordBlock("give up", "", [], "", [s])
+    with create_pipe_input() as inp:
+        inp.send_text(
+            "p\r"
+        )  # p is a no-op with no tts configured; Enter still confirms
+        with create_app_session(input=inp, output=DummyOutput()):
+            assert ui.select_sentences(block) == [s]
+
+
 def test_render_block_omits_spacer_row_without_explanation_or_translations():
     block = WordBlock(
         expression="give up",
