@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
+
 from rich.console import Console
 from rich.markup import escape
 from rich.theme import Theme
@@ -69,3 +71,11 @@ def read_words() -> list[str]:
     except (KeyboardInterrupt, EOFError):
         return []
     return _lines_to_words(text)
+
+
+@contextmanager
+def mining_status(word_count: int):
+    with console.status("[mnr.label]Connecting to Gemini…[/]", spinner="dots") as status:
+        status.update(f"[mnr.label]Mining {word_count} words…[/]")
+        yield
+    console.print(f" [mnr.success]✓ {word_count} words mined[/]")
