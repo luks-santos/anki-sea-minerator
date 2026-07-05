@@ -49,7 +49,8 @@ def render_block(block: WordBlock) -> None:
     if block.translations:
         pt = " · ".join(escape(t) for t in block.translations)
         table.add_row("PT", f"[mnr.translation]{pt}[/]")
-    table.add_row("", "")
+    if block.explanation or block.translations:
+        table.add_row("", "")
     table.add_row("Card back", f"[dim]{escape(build_back(block))}[/]")
     console.print(table)
     console.print()
@@ -175,7 +176,4 @@ def select_sentences(block: WordBlock) -> list[Sentence]:
     app: Application = Application(
         layout=layout, key_bindings=bindings, style=merge_styles_default([])
     )
-    try:
-        return app.run()
-    except KeyboardInterrupt:
-        return []
+    return app.run()

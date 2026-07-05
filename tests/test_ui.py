@@ -175,3 +175,26 @@ def test_select_sentences_down_then_enter_picks_second_sentence():
         inp.send_text("\x1b[B\r")  # Down onto the second sentence, then Enter
         with create_app_session(input=inp, output=DummyOutput()):
             assert ui.select_sentences(block) == [s2]
+
+
+def test_select_sentences_ctrl_c_raises_keyboard_interrupt():
+    s = Sentence("Never give up.", "give up")
+    block = WordBlock("give up", "", [], "", [s])
+    with create_pipe_input() as inp:
+        inp.send_text("\x03")  # Ctrl+C
+        with create_app_session(input=inp, output=DummyOutput()):
+            with pytest.raises(KeyboardInterrupt):
+                ui.select_sentences(block)
+
+
+def test_render_block_omits_spacer_row_without_explanation_or_translations():
+    block = WordBlock(
+        expression="give up", explanation="", translations=[],
+        grammar_class="Phrasal Verb", sentences=[],
+    )
+    with ui.console.capture() as cap:
+        ui.render_block(block)
+    stripped_lines = [_strip_ansi(line) for line in cap.get().splitlines()]
+    non_blank = [line for line in stripped_lines if line.strip()]
+    assert len(non_blank) == 3  # rule + heading line + Card back line, no spacer row
+    assert "Card back" in non_blank[2]

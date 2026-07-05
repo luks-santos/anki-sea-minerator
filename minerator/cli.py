@@ -120,18 +120,29 @@ def mine() -> None:
         raise typer.Exit(1)
 
     total_created = 0
-    for block in blocks:
-        render_block(block)
-        if not block.sentences:
-            console.print(f"[yellow]! no sentences returned for '{block.expression}'[/yellow]")
-            continue
-        selected = select_sentences(block)
-        if not selected:
-            continue
-        with creating_cards_status(len(selected)):
-            for res in create_cards_for_selection(block, selected, cfg, deck, anki, tts):
-                total_created += 1 if res.created else 0
-                if res.warning:
-                    console.print(f"[yellow]! {res.warning}[/yellow]")
+    try:
+        for block in blocks:
+            render_block(block)
+            if not block.sentences:
+                console.print(
+                    f"[yellow]! no sentences returned for '{block.expression}'[/yellow]"
+                )
+                continue
+            selected = select_sentences(block)
+            if not selected:
+                continue
+            with creating_cards_status(len(selected)):
+                for res in create_cards_for_selection(block, selected, cfg, deck, anki, tts):
+                    total_created += 1 if res.created else 0
+                    if res.warning:
+                        console.print(f"[yellow]! {res.warning}[/yellow]")
+    except KeyboardInterrupt:
+        console.print("\nCancelled.")
+        console.print(f"[green]Cards created: {total_created}[/green]")
+        raise typer.Exit(0)
+    except Exception as exc:
+        console.print(f"[red]Failed to create cards: {exc}[/red]")
+        console.print(f"[green]Cards created so far: {total_created}[/green]")
+        raise typer.Exit(1)
 
     console.print(f"\n[green]Done. Cards created: {total_created}[/green]")
