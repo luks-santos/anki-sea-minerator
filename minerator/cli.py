@@ -5,16 +5,22 @@ from rich.console import Console
 
 from minerator.ai.gemini import GeminiConnector
 from minerator.anki.client import AnkiClient
-from minerator.cards import build_back
 from minerator.config import Config, config_path, load_config, save_config
 from minerator.flow import create_cards_for_selection
 from minerator.prompt import DEFAULT_PROMPT, load_prompt
 from minerator.tts.base import get_engine
+from minerator.ui import (
+    creating_cards_status,
+    mining_status,
+    read_words,
+    render_block,
+    select_sentences,
+)
 
 app = typer.Typer(help="Mine English vocabulary into Anki flashcards.")
 config_app = typer.Typer(help="Manage configuration.")
 app.add_typer(config_app, name="config")
-console = Console()
+console = Console(highlight=False)
 
 
 def _load() -> Config:
@@ -62,20 +68,6 @@ def config_edit_prompt() -> None:
     console.print(f"Edit your prompt at: {path}")
 
 
-def _read_words() -> list[str]:
-    console.print("Paste your list of the day (one per line, empty line to finish):")
-    words: list[str] = []
-    while True:
-        try:
-            line = input().strip()
-        except EOFError:
-            break
-        if not line:
-            break
-        words.append(line)
-    return words
-
-
 @app.command()
 def mine() -> None:
     """Run an interactive mining session."""
@@ -107,7 +99,7 @@ def mine() -> None:
         )
         raise typer.Exit(1)
 
-    words = _read_words()
+    words = read_words()
     if not words:
         console.print("Nothing to mine.")
         raise typer.Exit(0)
@@ -130,30 +122,38 @@ def mine() -> None:
 
     connector = GeminiConnector(cfg.gemini_api_key, cfg.model)
     try:
-        blocks = connector.mine(words, load_prompt(cfg.prompt_path))
+        with mining_status(len(words)):
+            blocks = connector.mine(words, load_prompt(cfg.prompt_path))
     except Exception as exc:
         console.print(f"[red]Failed to mine words: {exc}[/red]")
         raise typer.Exit(1) from exc
 
     total_created = 0
-    for block in blocks:
-        console.print(f"\n[bold]{block.expression}[/bold] — {block.explanation}")
-        console.print(build_back(block))
-        if not block.sentences:
-            console.print(
-                f"[yellow]! no sentences returned for '{block.expression}'[/yellow]"
-            )
-            continue
-        choices = [
-            questionary.Choice(title=f"{s.text}  ({s.note})", value=s)
-            for s in block.sentences
-        ]
-        selected = (
-            questionary.checkbox("Select sentences:", choices=choices).ask() or []
-        )
-        for res in create_cards_for_selection(block, selected, cfg, deck, anki, tts):
-            total_created += 1 if res.created else 0
-            if res.warning:
-                console.print(f"[yellow]! {res.warning}[/yellow]")
+    try:
+        for block in blocks:
+            render_block(block)
+            if not block.sentences:
+                console.print(
+                    f"[yellow]! no sentences returned for '{block.expression}'[/yellow]"
+                )
+                continue
+            selected = select_sentences(block)
+            if not selected:
+                continue
+            with creating_cards_status(len(selected)):
+                for res in create_cards_for_selection(
+                    block, selected, cfg, deck, anki, tts
+                ):
+                    total_created += 1 if res.created else 0
+                    if res.warning:
+                        console.print(f"[yellow]! {res.warning}[/yellow]")
+    except KeyboardInterrupt:
+        console.print("\nCancelled.")
+        console.print(f"[green]Cards created: {total_created}[/green]")
+        raise typer.Exit(0) from None
+    except Exception as exc:
+        console.print(f"[red]Failed to create cards: {exc}[/red]")
+        console.print(f"[green]Cards created so far: {total_created}[/green]")
+        raise typer.Exit(1) from exc
 
     console.print(f"\n[green]Done. Cards created: {total_created}[/green]")

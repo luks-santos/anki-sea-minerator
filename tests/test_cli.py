@@ -1,8 +1,8 @@
 from typer.testing import CliRunner
 
-from minerator.cli import _read_words, app
+from minerator.cli import app
 from minerator.config import Config, save_config
-from minerator.models import WordBlock
+from minerator.models import Sentence, WordBlock
 
 runner = CliRunner()
 
@@ -96,8 +96,9 @@ def test_mine_exits_cleanly_when_deck_selection_cancelled(monkeypatch, tmp_path)
     monkeypatch.setattr("minerator.cli.config_path", lambda: tmp_path / "config.toml")
     monkeypatch.setenv("GEMINI_API_KEY", "key")
     monkeypatch.setattr("minerator.cli.AnkiClient", lambda: FakeMineAnki())
+    monkeypatch.setattr("minerator.cli.read_words", lambda: ["word1"])
     monkeypatch.setattr("questionary.select", lambda *a, **k: fake_ask(None))
-    result = runner.invoke(app, ["mine"], input="word1\n\n")
+    result = runner.invoke(app, ["mine"])
     assert result.exit_code == 0
     assert "Cancelled" in result.stdout
 
@@ -106,6 +107,7 @@ def test_mine_skips_word_block_with_no_sentences(monkeypatch, tmp_path):
     monkeypatch.setattr("minerator.cli.config_path", lambda: tmp_path / "config.toml")
     monkeypatch.setenv("GEMINI_API_KEY", "key")
     monkeypatch.setattr("minerator.cli.AnkiClient", lambda: FakeMineAnki())
+    monkeypatch.setattr("minerator.cli.read_words", lambda: ["word1"])
     monkeypatch.setattr("questionary.select", lambda *a, **k: fake_ask("Default"))
 
     empty_block = WordBlock(
@@ -120,7 +122,7 @@ def test_mine_skips_word_block_with_no_sentences(monkeypatch, tmp_path):
         lambda *a, **k: type("C", (), {"mine": lambda self, w, p: [empty_block]})(),
     )
 
-    result = runner.invoke(app, ["mine"], input="word1\n\n")
+    result = runner.invoke(app, ["mine"])
     assert result.exit_code == 0
     assert "no sentences" in result.stdout.lower()
 
@@ -129,6 +131,7 @@ def test_mine_reports_error_when_gemini_raises(monkeypatch, tmp_path):
     monkeypatch.setattr("minerator.cli.config_path", lambda: tmp_path / "config.toml")
     monkeypatch.setenv("GEMINI_API_KEY", "key")
     monkeypatch.setattr("minerator.cli.AnkiClient", lambda: FakeMineAnki())
+    monkeypatch.setattr("minerator.cli.read_words", lambda: ["word1"])
     monkeypatch.setattr("questionary.select", lambda *a, **k: fake_ask("Default"))
 
     def raise_mine(self, words, prompt):
@@ -139,7 +142,7 @@ def test_mine_reports_error_when_gemini_raises(monkeypatch, tmp_path):
         lambda *a, **k: type("C", (), {"mine": raise_mine})(),
     )
 
-    result = runner.invoke(app, ["mine"], input="word1\n\n")
+    result = runner.invoke(app, ["mine"])
     assert result.exit_code == 1
     assert "Failed to mine" in result.stdout
 
@@ -150,6 +153,7 @@ def test_mine_rejects_unknown_tts_engine_before_calling_gemini(monkeypatch, tmp_
     monkeypatch.setattr("minerator.cli.config_path", lambda: cfg_file)
     monkeypatch.setenv("GEMINI_API_KEY", "key")
     monkeypatch.setattr("minerator.cli.AnkiClient", lambda: FakeMineAnki())
+    monkeypatch.setattr("minerator.cli.read_words", lambda: ["word1"])
     monkeypatch.setattr("questionary.select", lambda *a, **k: fake_ask("Default"))
 
     called = {"mine": False}
@@ -163,20 +167,131 @@ def test_mine_rejects_unknown_tts_engine_before_calling_gemini(monkeypatch, tmp_
         lambda *a, **k: type("C", (), {"mine": fake_mine})(),
     )
 
-    result = runner.invoke(app, ["mine"], input="word1\n\n")
+    result = runner.invoke(app, ["mine"])
     assert result.exit_code == 1
     assert "unknown TTS engine" in result.stdout
     assert called["mine"] is False
 
 
-def test_read_words_stops_gracefully_on_eof(monkeypatch):
-    lines = iter(["word1", "word2"])
+def test_mine_creates_card_for_selected_sentence(monkeypatch, tmp_path):
+    monkeypatch.setattr("minerator.cli.config_path", lambda: tmp_path / "config.toml")
+    monkeypatch.setenv("GEMINI_API_KEY", "key")
+    anki = FakeMineAnki()
+    monkeypatch.setattr("minerator.cli.AnkiClient", lambda: anki)
+    monkeypatch.setattr("questionary.select", lambda *a, **k: fake_ask("Default"))
+    monkeypatch.setattr("minerator.cli.read_words", lambda: ["give up"])
+    monkeypatch.setattr(
+        "minerator.cli.get_engine", lambda *a, **k: None
+    )  # no audio/network
 
-    def fake_input():
-        try:
-            return next(lines)
-        except StopIteration:
-            raise EOFError from None
+    sentence = Sentence("Never give up.", "give up", "imperative")
+    block = WordBlock(
+        expression="give up",
+        explanation="Desistir.",
+        translations=["desistir"],
+        grammar_class="Phrasal Verb",
+        sentences=[sentence],
+    )
+    monkeypatch.setattr(
+        "minerator.cli.GeminiConnector",
+        lambda *a, **k: type("C", (), {"mine": lambda self, w, p: [block]})(),
+    )
+    monkeypatch.setattr("minerator.cli.select_sentences", lambda b: [sentence])
 
-    monkeypatch.setattr("builtins.input", fake_input)
-    assert _read_words() == ["word1", "word2"]
+    result = runner.invoke(app, ["mine"])
+    assert result.exit_code == 0
+    assert "Cards created: 1" in result.stdout
+    assert len(anki.notes) == 1
+
+
+def test_mine_asks_deck_before_mining(monkeypatch, tmp_path):
+    monkeypatch.setattr("minerator.cli.config_path", lambda: tmp_path / "config.toml")
+    monkeypatch.setenv("GEMINI_API_KEY", "key")
+    monkeypatch.setattr("minerator.cli.AnkiClient", lambda: FakeMineAnki())
+    monkeypatch.setattr("minerator.cli.read_words", lambda: ["word1"])
+
+    call_order = []
+
+    def fake_questionary_select(*a, **k):
+        call_order.append("deck_select")
+        return fake_ask("Default")
+
+    def fake_mine(self, words, prompt):
+        call_order.append("mine")
+        return []
+
+    monkeypatch.setattr("questionary.select", fake_questionary_select)
+    monkeypatch.setattr(
+        "minerator.cli.GeminiConnector",
+        lambda *a, **k: type("C", (), {"mine": fake_mine})(),
+    )
+
+    result = runner.invoke(app, ["mine"])
+    assert result.exit_code == 0
+    assert call_order == ["deck_select", "mine"]
+
+
+def test_mine_stops_cleanly_when_sentence_picker_interrupted(monkeypatch, tmp_path):
+    monkeypatch.setattr("minerator.cli.config_path", lambda: tmp_path / "config.toml")
+    monkeypatch.setenv("GEMINI_API_KEY", "key")
+    anki = FakeMineAnki()
+    monkeypatch.setattr("minerator.cli.AnkiClient", lambda: anki)
+    monkeypatch.setattr("questionary.select", lambda *a, **k: fake_ask("Default"))
+    monkeypatch.setattr("minerator.cli.read_words", lambda: ["give up"])
+    monkeypatch.setattr("minerator.cli.get_engine", lambda *a, **k: None)
+
+    sentence = Sentence("Never give up.", "give up", "imperative")
+    block = WordBlock(
+        expression="give up",
+        explanation="Desistir.",
+        translations=["desistir"],
+        grammar_class="Phrasal Verb",
+        sentences=[sentence],
+    )
+    monkeypatch.setattr(
+        "minerator.cli.GeminiConnector",
+        lambda *a, **k: type("C", (), {"mine": lambda self, w, p: [block]})(),
+    )
+
+    def raise_interrupt(b):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr("minerator.cli.select_sentences", raise_interrupt)
+
+    result = runner.invoke(app, ["mine"])
+    assert result.exit_code == 0
+    assert "Cancelled" in result.stdout
+    assert len(anki.notes) == 0
+
+
+def test_mine_reports_error_when_card_creation_raises(monkeypatch, tmp_path):
+    monkeypatch.setattr("minerator.cli.config_path", lambda: tmp_path / "config.toml")
+    monkeypatch.setenv("GEMINI_API_KEY", "key")
+    anki = FakeMineAnki()
+    monkeypatch.setattr("minerator.cli.AnkiClient", lambda: anki)
+    monkeypatch.setattr("questionary.select", lambda *a, **k: fake_ask("Default"))
+    monkeypatch.setattr("minerator.cli.read_words", lambda: ["give up"])
+    monkeypatch.setattr("minerator.cli.get_engine", lambda *a, **k: None)
+
+    sentence = Sentence("Never give up.", "give up", "imperative")
+    block = WordBlock(
+        expression="give up",
+        explanation="Desistir.",
+        translations=["desistir"],
+        grammar_class="Phrasal Verb",
+        sentences=[sentence],
+    )
+    monkeypatch.setattr(
+        "minerator.cli.GeminiConnector",
+        lambda *a, **k: type("C", (), {"mine": lambda self, w, p: [block]})(),
+    )
+    monkeypatch.setattr("minerator.cli.select_sentences", lambda b: [sentence])
+
+    def raise_create_cards(*a, **k):
+        raise RuntimeError("Anki connection dropped")
+
+    monkeypatch.setattr("minerator.cli.create_cards_for_selection", raise_create_cards)
+
+    result = runner.invoke(app, ["mine"])
+    assert result.exit_code == 1
+    assert "Failed to create cards" in result.stdout
