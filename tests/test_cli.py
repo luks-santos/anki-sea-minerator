@@ -196,7 +196,7 @@ def test_mine_creates_card_for_selected_sentence(monkeypatch, tmp_path):
         "minerator.cli.GeminiConnector",
         lambda *a, **k: type("C", (), {"mine": lambda self, w, p: [block]})(),
     )
-    monkeypatch.setattr("minerator.cli.select_sentences", lambda b: [sentence])
+    monkeypatch.setattr("minerator.cli.select_sentences", lambda b, t: [sentence])
 
     result = runner.invoke(app, ["mine"])
     assert result.exit_code == 0
@@ -253,7 +253,7 @@ def test_mine_stops_cleanly_when_sentence_picker_interrupted(monkeypatch, tmp_pa
         lambda *a, **k: type("C", (), {"mine": lambda self, w, p: [block]})(),
     )
 
-    def raise_interrupt(b):
+    def raise_interrupt(b, t):
         raise KeyboardInterrupt
 
     monkeypatch.setattr("minerator.cli.select_sentences", raise_interrupt)
@@ -285,7 +285,7 @@ def test_mine_reports_error_when_card_creation_raises(monkeypatch, tmp_path):
         "minerator.cli.GeminiConnector",
         lambda *a, **k: type("C", (), {"mine": lambda self, w, p: [block]})(),
     )
-    monkeypatch.setattr("minerator.cli.select_sentences", lambda b: [sentence])
+    monkeypatch.setattr("minerator.cli.select_sentences", lambda b, t: [sentence])
 
     def raise_create_cards(*a, **k):
         raise RuntimeError("Anki connection dropped")
@@ -295,3 +295,40 @@ def test_mine_reports_error_when_card_creation_raises(monkeypatch, tmp_path):
     result = runner.invoke(app, ["mine"])
     assert result.exit_code == 1
     assert "Failed to create cards" in result.stdout
+
+
+def test_mine_passes_tts_engine_to_select_sentences(monkeypatch, tmp_path):
+    monkeypatch.setattr("minerator.cli.config_path", lambda: tmp_path / "config.toml")
+    monkeypatch.setenv("GEMINI_API_KEY", "key")
+    anki = FakeMineAnki()
+    monkeypatch.setattr("minerator.cli.AnkiClient", lambda: anki)
+    monkeypatch.setattr("questionary.select", lambda *a, **k: fake_ask("Default"))
+    monkeypatch.setattr("minerator.cli.read_words", lambda: ["give up"])
+
+    fake_tts = object()
+    monkeypatch.setattr("minerator.cli.get_engine", lambda *a, **k: fake_tts)
+
+    sentence = Sentence("Never give up.", "give up", "imperative")
+    block = WordBlock(
+        expression="give up",
+        explanation="Desistir.",
+        translations=["desistir"],
+        grammar_class="Phrasal Verb",
+        sentences=[sentence],
+    )
+    monkeypatch.setattr(
+        "minerator.cli.GeminiConnector",
+        lambda *a, **k: type("C", (), {"mine": lambda self, w, p: [block]})(),
+    )
+
+    received = {}
+
+    def fake_select_sentences(b, t):
+        received["tts"] = t
+        return [sentence]
+
+    monkeypatch.setattr("minerator.cli.select_sentences", fake_select_sentences)
+
+    result = runner.invoke(app, ["mine"])
+    assert result.exit_code == 0
+    assert received["tts"] is fake_tts
