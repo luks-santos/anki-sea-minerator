@@ -16,6 +16,7 @@ dependencies = [
     "httpx>=0.27",
     "platformdirs>=4",
     "tomli-w>=1",
+    "playsound3>=3.3",
 ]
 
 [project.optional-dependencies]
@@ -45,5 +46,5 @@ select = ["E", "F", "I", "UP", "B"]
 python_version = "3.11"
 
 [[tool.mypy.overrides]]
-module = ["edge_tts.*", "gtts.*", "questionary.*"]
+module = ["edge_tts.*", "gtts.*", "questionary.*", "playsound3.*"]
 ignore_missing_imports = true
