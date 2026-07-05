@@ -108,27 +108,38 @@ def test_resolve_selection_checked_skip_returns_empty():
     assert ui._resolve_selection([ui._SKIP, s1], s1) == []
 
 
-def test_select_sentences_immediate_enter_skips():
-    block = WordBlock("give up", "", [], "", [Sentence("Never give up.", "give up")])
-    with create_pipe_input() as inp:
-        inp.send_text("\r")  # Enter with pointer on the skip row
-        with create_app_session(input=inp, output=DummyOutput()):
-            assert ui.select_sentences(block) == []
-
-
-def test_select_sentences_down_then_enter_picks_pointed():
+def test_select_sentences_immediate_enter_picks_first_sentence():
     s = Sentence("Never give up.", "give up")
     block = WordBlock("give up", "", [], "", [s])
     with create_pipe_input() as inp:
-        inp.send_text("\x1b[B\r")  # Down onto the sentence, then Enter
+        inp.send_text("\r")  # Enter with pointer defaulting to the first sentence
         with create_app_session(input=inp, output=DummyOutput()):
             assert ui.select_sentences(block) == [s]
+
+
+def test_select_sentences_navigate_to_skip_row_returns_empty():
+    s = Sentence("Never give up.", "give up")
+    block = WordBlock("give up", "", [], "", [s])
+    with create_pipe_input() as inp:
+        inp.send_text("\x1b[B\r")  # Down onto the trailing skip row, then Enter
+        with create_app_session(input=inp, output=DummyOutput()):
+            assert ui.select_sentences(block) == []
 
 
 def test_select_sentences_space_toggles_then_enter():
     s = Sentence("Never give up.", "give up")
     block = WordBlock("give up", "", [], "", [s])
     with create_pipe_input() as inp:
-        inp.send_text("\x1b[B \r")  # Down, space (toggle), Enter
+        inp.send_text(" \r")  # Space toggles the pointed sentence, then Enter
         with create_app_session(input=inp, output=DummyOutput()):
             assert ui.select_sentences(block) == [s]
+
+
+def test_select_sentences_down_then_enter_picks_second_sentence():
+    s1 = Sentence("Never give up.", "give up")
+    s2 = Sentence("Don't give up now.", "give up")
+    block = WordBlock("give up", "", [], "", [s1, s2])
+    with create_pipe_input() as inp:
+        inp.send_text("\x1b[B\r")  # Down onto the second sentence, then Enter
+        with create_app_session(input=inp, output=DummyOutput()):
+            assert ui.select_sentences(block) == [s2]

@@ -34,17 +34,24 @@ THEME = Theme(
 console = Console(theme=THEME)
 
 
+_LABEL_WIDTH = 11
+
+
 def render_block(block: WordBlock) -> None:
     console.rule(style="mnr.label")
     grammar = f"  [mnr.grammar]{escape(block.grammar_class)}[/]" if block.grammar_class else ""
     console.print(f" [mnr.heading]{escape(block.expression)}[/]{grammar}")
     console.print()
     if block.explanation:
-        console.print(f" [mnr.label]Meaning[/]     [mnr.explanation]{escape(block.explanation)}[/]")
+        label = "Meaning".ljust(_LABEL_WIDTH)
+        console.print(f" [mnr.label]{label}[/][mnr.explanation]{escape(block.explanation)}[/]")
     if block.translations:
         pt = " · ".join(escape(t) for t in block.translations)
-        console.print(f" [mnr.label]PT[/]          [mnr.translation]{pt}[/]")
-    console.print(f" [mnr.label]Card back[/]   [dim]{escape(build_back(block))}[/]")
+        label = "PT".ljust(_LABEL_WIDTH)
+        console.print(f" [mnr.label]{label}[/][mnr.translation]{pt}[/]")
+    console.print()
+    label = "Card back".ljust(_LABEL_WIDTH)
+    console.print(f" [mnr.label]{label}[/][dim]{escape(build_back(block))}[/]")
     console.print()
 
 
@@ -106,10 +113,11 @@ def _resolve_selection(checked: list, pointed) -> list[Sentence]:
 
 
 def select_sentences(block: WordBlock) -> list[Sentence]:
-    choices = [Choice("✗ None (skip this word)", value=_SKIP)]
+    choices = []
     for sentence in block.sentences:
         title = sentence.text if not sentence.note else f"{sentence.text}   ({sentence.note})"
         choices.append(Choice(title, value=sentence))
+    choices.append(Choice("✗ None (skip this word)", value=_SKIP))
 
     ic = InquirerControl(choices, None, pointer="❯", show_description=False)
 
