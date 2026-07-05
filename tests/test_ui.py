@@ -262,15 +262,10 @@ def test_fetch_and_play_sets_warning_status_on_failure():
 
 
 def test_select_sentences_p_previews_pointed_sentence_then_enter_confirms(monkeypatch):
-    class SyncThread:
-        def __init__(self, target=None, args=(), daemon=None):
-            self._target = target
-            self._args = args
+    def sync_start(tts, cache, text, state, app):
+        ui._fetch_and_play(tts, cache, text, state, app)
 
-        def start(self):
-            self._target(*self._args)
-
-    monkeypatch.setattr(ui.threading, "Thread", SyncThread)
+    monkeypatch.setattr(ui, "_start_preview_thread", sync_start)
 
     played = []
     monkeypatch.setattr(ui, "play_audio", lambda data: played.append(data))

@@ -131,6 +131,14 @@ def _fetch_and_play(
         app.invalidate()
 
 
+def _start_preview_thread(tts, cache, text, state, app) -> None:
+    threading.Thread(
+        target=_fetch_and_play,
+        args=(tts, cache, text, state, app),
+        daemon=True,
+    ).start()
+
+
 _SKIP = object()
 
 
@@ -195,11 +203,7 @@ def select_sentences(block: WordBlock, tts=None) -> list[Sentence]:
         state.busy = True
         state.text = " 🔊 loading…"
         event.app.invalidate()
-        threading.Thread(
-            target=_fetch_and_play,
-            args=(tts, cache, value.text, state, event.app),
-            daemon=True,
-        ).start()
+        _start_preview_thread(tts, cache, value.text, state, event.app)
 
     def _down(event):
         ic.select_next()
