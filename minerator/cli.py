@@ -52,7 +52,11 @@ def config_edit_prompt() -> None:
     cfg = _load()
     from pathlib import Path
 
-    path = Path(cfg.prompt_path) if cfg.prompt_path else config_path().parent / "prompt.txt"
+    path = (
+        Path(cfg.prompt_path)
+        if cfg.prompt_path
+        else config_path().parent / "prompt.txt"
+    )
     if not path.is_file():
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(DEFAULT_PROMPT, encoding="utf-8")
@@ -76,14 +80,18 @@ def mine() -> None:
 
     anki = AnkiClient()
     if not anki.ping():
-        console.print("[red]AnkiConnect not reachable. Open Anki with the add-on.[/red]")
+        console.print(
+            "[red]AnkiConnect not reachable. Open Anki with the add-on.[/red]"
+        )
         raise typer.Exit(1)
 
     if cfg.note_type not in anki.model_names():
         console.print(f"[red]Note type '{cfg.note_type}' not found in Anki.[/red]")
         raise typer.Exit(1)
     note_fields = anki.model_field_names(cfg.note_type)
-    missing_fields = [f for f in (cfg.front_field, cfg.back_field) if f not in note_fields]
+    missing_fields = [
+        f for f in (cfg.front_field, cfg.back_field) if f not in note_fields
+    ]
     if missing_fields:
         console.print(
             f"[red]Field(s) {', '.join(missing_fields)} not found in note type "
@@ -98,7 +106,8 @@ def mine() -> None:
 
     decks = anki.deck_names()
     deck = questionary.select(
-        "Target deck:", choices=decks,
+        "Target deck:",
+        choices=decks,
         default=cfg.default_deck if cfg.default_deck in decks else None,
     ).ask()
     if deck is None:
@@ -109,7 +118,7 @@ def mine() -> None:
         tts = get_engine(cfg.tts_engine, cfg.tts_voice)
     except ValueError as exc:
         console.print(f"[red]{exc}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from exc
 
     connector = GeminiConnector(cfg.gemini_api_key, cfg.model)
     try:
@@ -117,7 +126,7 @@ def mine() -> None:
             blocks = connector.mine(words, load_prompt(cfg.prompt_path))
     except Exception as exc:
         console.print(f"[red]Failed to mine words: {exc}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from exc
 
     total_created = 0
     try:
@@ -132,17 +141,19 @@ def mine() -> None:
             if not selected:
                 continue
             with creating_cards_status(len(selected)):
-                for res in create_cards_for_selection(block, selected, cfg, deck, anki, tts):
+                for res in create_cards_for_selection(
+                    block, selected, cfg, deck, anki, tts
+                ):
                     total_created += 1 if res.created else 0
                     if res.warning:
                         console.print(f"[yellow]! {res.warning}[/yellow]")
     except KeyboardInterrupt:
         console.print("\nCancelled.")
         console.print(f"[green]Cards created: {total_created}[/green]")
-        raise typer.Exit(0)
+        raise typer.Exit(0) from None
     except Exception as exc:
         console.print(f"[red]Failed to create cards: {exc}[/red]")
         console.print(f"[green]Cards created so far: {total_created}[/green]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from exc
 
     console.print(f"\n[green]Done. Cards created: {total_created}[/green]")

@@ -2,18 +2,16 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 
-from rich.console import Console
-from rich.markup import escape
-from rich.table import Table
-from rich.theme import Theme
-
 from prompt_toolkit import PromptSession
 from prompt_toolkit.application import Application
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.keys import Keys
-
 from questionary.prompts.common import Choice, InquirerControl, create_inquirer_layout
 from questionary.styles import merge_styles_default
+from rich.console import Console
+from rich.markup import escape
+from rich.table import Table
+from rich.theme import Theme
 
 from minerator.cards import build_back
 from minerator.models import Sentence, WordBlock
@@ -37,7 +35,11 @@ console = Console(theme=THEME, highlight=False)
 
 def render_block(block: WordBlock) -> None:
     console.rule(style="mnr.label")
-    grammar = f"  [mnr.grammar]{escape(block.grammar_class)}[/]" if block.grammar_class else ""
+    grammar = (
+        f"  [mnr.grammar]{escape(block.grammar_class)}[/]"
+        if block.grammar_class
+        else ""
+    )
     console.print(f" [mnr.heading]{escape(block.expression)}[/]{grammar}")
     console.print()
 
@@ -87,7 +89,9 @@ def read_words() -> list[str]:
 
 @contextmanager
 def mining_status(word_count: int):
-    with console.status("[mnr.label]Connecting to Gemini…[/]", spinner="dots") as status:
+    with console.status(
+        "[mnr.label]Connecting to Gemini…[/]", spinner="dots"
+    ) as status:
         status.update(f"[mnr.label]Mining {word_count} words…[/]")
         yield
     console.print(f" [mnr.success]✓ {word_count} words mined[/]")
@@ -95,7 +99,9 @@ def mining_status(word_count: int):
 
 @contextmanager
 def creating_cards_status(card_count: int):
-    with console.status(f"[mnr.label]Creating {card_count} card(s)…[/]", spinner="dots"):
+    with console.status(
+        f"[mnr.label]Creating {card_count} card(s)…[/]", spinner="dots"
+    ):
         yield
 
 
@@ -116,7 +122,11 @@ def _resolve_selection(checked: list, pointed) -> list[Sentence]:
 def select_sentences(block: WordBlock) -> list[Sentence]:
     choices = []
     for sentence in block.sentences:
-        title = sentence.text if not sentence.note else f"{sentence.text}   ({sentence.note})"
+        title = (
+            sentence.text
+            if not sentence.note
+            else f"{sentence.text}   ({sentence.note})"
+        )
         choices.append(Choice(title, value=sentence))
     choices.append(Choice("✗ None (skip this word)", value=_SKIP))
 

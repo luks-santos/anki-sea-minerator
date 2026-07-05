@@ -30,7 +30,11 @@ Respond ONLY with JSON (no markdown fences) matching this schema:
       "translations": ["Desistir", "Parar"],
       "grammar_class": "Phrasal Verb",
       "sentences": [
-        {"text": "Never give up on dreams.", "highlight": "give up", "note": "imperative"}
+        {
+          "text": "Never give up on dreams.",
+          "highlight": "give up",
+          "note": "imperative"
+        }
       ]
     }
   ]

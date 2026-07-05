@@ -16,7 +16,9 @@ def test_deck_names_returns_result():
         payload = json.loads(request.content)
         assert payload["action"] == "deckNames"
         assert payload["version"] == 6
-        return httpx.Response(200, json={"result": ["Default", "English"], "error": None})
+        return httpx.Response(
+            200, json={"result": ["Default", "English"], "error": None}
+        )
 
     assert make_client(handler).deck_names() == ["Default", "English"]
 
@@ -30,8 +32,10 @@ def test_add_note_sends_note_structure_and_returns_id():
         return httpx.Response(200, json={"result": 1512, "error": None})
 
     note_id = make_client(handler).add_note(
-        deck="English", model="Básico",
-        fields={"Frente": "front", "Verso": "back"}, tags=["mined"],
+        deck="English",
+        model="Básico",
+        fields={"Frente": "front", "Verso": "back"},
+        tags=["mined"],
     )
     assert note_id == 1512
     note = captured["params"]["note"]

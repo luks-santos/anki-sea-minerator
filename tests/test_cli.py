@@ -1,7 +1,7 @@
 from typer.testing import CliRunner
 
-from minerator.config import Config, save_config
 from minerator.cli import app
+from minerator.config import Config, save_config
 from minerator.models import Sentence, WordBlock
 
 runner = CliRunner()
@@ -39,7 +39,10 @@ def fake_ask(value):
 
 
 def test_check_reports_status(monkeypatch):
-    monkeypatch.setattr("minerator.cli.AnkiClient", lambda: type("C", (), {"ping": lambda self: False})())
+    monkeypatch.setattr(
+        "minerator.cli.AnkiClient",
+        lambda: type("C", (), {"ping": lambda self: False})(),
+    )
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     result = runner.invoke(app, ["check"])
     assert result.exit_code == 0
@@ -69,7 +72,9 @@ def test_config_edit_prompt_does_not_persist_env_sourced_api_key(monkeypatch, tm
 def test_mine_exits_if_note_type_missing(monkeypatch, tmp_path):
     monkeypatch.setattr("minerator.cli.config_path", lambda: tmp_path / "config.toml")
     monkeypatch.setenv("GEMINI_API_KEY", "key")
-    monkeypatch.setattr("minerator.cli.AnkiClient", lambda: FakeMineAnki(model_names=[]))
+    monkeypatch.setattr(
+        "minerator.cli.AnkiClient", lambda: FakeMineAnki(model_names=[])
+    )
     result = runner.invoke(app, ["mine"])
     assert result.exit_code == 1
     assert "Básico" in result.stdout
@@ -106,8 +111,11 @@ def test_mine_skips_word_block_with_no_sentences(monkeypatch, tmp_path):
     monkeypatch.setattr("questionary.select", lambda *a, **k: fake_ask("Default"))
 
     empty_block = WordBlock(
-        expression="foo", explanation="", translations=["bar"],
-        grammar_class="Noun", sentences=[],
+        expression="foo",
+        explanation="",
+        translations=["bar"],
+        grammar_class="Noun",
+        sentences=[],
     )
     monkeypatch.setattr(
         "minerator.cli.GeminiConnector",
@@ -130,7 +138,8 @@ def test_mine_reports_error_when_gemini_raises(monkeypatch, tmp_path):
         raise ValueError("malformed mining response")
 
     monkeypatch.setattr(
-        "minerator.cli.GeminiConnector", lambda *a, **k: type("C", (), {"mine": raise_mine})()
+        "minerator.cli.GeminiConnector",
+        lambda *a, **k: type("C", (), {"mine": raise_mine})(),
     )
 
     result = runner.invoke(app, ["mine"])
@@ -154,7 +163,8 @@ def test_mine_rejects_unknown_tts_engine_before_calling_gemini(monkeypatch, tmp_
         return []
 
     monkeypatch.setattr(
-        "minerator.cli.GeminiConnector", lambda *a, **k: type("C", (), {"mine": fake_mine})()
+        "minerator.cli.GeminiConnector",
+        lambda *a, **k: type("C", (), {"mine": fake_mine})(),
     )
 
     result = runner.invoke(app, ["mine"])
@@ -170,12 +180,17 @@ def test_mine_creates_card_for_selected_sentence(monkeypatch, tmp_path):
     monkeypatch.setattr("minerator.cli.AnkiClient", lambda: anki)
     monkeypatch.setattr("questionary.select", lambda *a, **k: fake_ask("Default"))
     monkeypatch.setattr("minerator.cli.read_words", lambda: ["give up"])
-    monkeypatch.setattr("minerator.cli.get_engine", lambda *a, **k: None)  # no audio/network
+    monkeypatch.setattr(
+        "minerator.cli.get_engine", lambda *a, **k: None
+    )  # no audio/network
 
     sentence = Sentence("Never give up.", "give up", "imperative")
     block = WordBlock(
-        expression="give up", explanation="Desistir.", translations=["desistir"],
-        grammar_class="Phrasal Verb", sentences=[sentence],
+        expression="give up",
+        explanation="Desistir.",
+        translations=["desistir"],
+        grammar_class="Phrasal Verb",
+        sentences=[sentence],
     )
     monkeypatch.setattr(
         "minerator.cli.GeminiConnector",
@@ -207,7 +222,8 @@ def test_mine_asks_deck_before_mining(monkeypatch, tmp_path):
 
     monkeypatch.setattr("questionary.select", fake_questionary_select)
     monkeypatch.setattr(
-        "minerator.cli.GeminiConnector", lambda *a, **k: type("C", (), {"mine": fake_mine})()
+        "minerator.cli.GeminiConnector",
+        lambda *a, **k: type("C", (), {"mine": fake_mine})(),
     )
 
     result = runner.invoke(app, ["mine"])
@@ -226,8 +242,11 @@ def test_mine_stops_cleanly_when_sentence_picker_interrupted(monkeypatch, tmp_pa
 
     sentence = Sentence("Never give up.", "give up", "imperative")
     block = WordBlock(
-        expression="give up", explanation="Desistir.", translations=["desistir"],
-        grammar_class="Phrasal Verb", sentences=[sentence],
+        expression="give up",
+        explanation="Desistir.",
+        translations=["desistir"],
+        grammar_class="Phrasal Verb",
+        sentences=[sentence],
     )
     monkeypatch.setattr(
         "minerator.cli.GeminiConnector",
@@ -256,8 +275,11 @@ def test_mine_reports_error_when_card_creation_raises(monkeypatch, tmp_path):
 
     sentence = Sentence("Never give up.", "give up", "imperative")
     block = WordBlock(
-        expression="give up", explanation="Desistir.", translations=["desistir"],
-        grammar_class="Phrasal Verb", sentences=[sentence],
+        expression="give up",
+        explanation="Desistir.",
+        translations=["desistir"],
+        grammar_class="Phrasal Verb",
+        sentences=[sentence],
     )
     monkeypatch.setattr(
         "minerator.cli.GeminiConnector",

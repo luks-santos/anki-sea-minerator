@@ -32,7 +32,10 @@ def test_audio_filename_is_stable_and_prefixed():
 def test_build_front_with_audio():
     highlighted = 'Never <span style="color:#2563eb">give up</span>.'
     out = build_front(highlighted, "minerator-abc.mp3")
-    assert out == 'Never <span style="color:#2563eb">give up</span>. [sound:minerator-abc.mp3]'
+    assert (
+        out
+        == 'Never <span style="color:#2563eb">give up</span>. [sound:minerator-abc.mp3]'
+    )
 
 
 def test_build_front_without_audio():

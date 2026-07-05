@@ -1,13 +1,13 @@
 import re
 
+import pytest
 from prompt_toolkit.application import create_app_session
 from prompt_toolkit.input import create_pipe_input
 from prompt_toolkit.output import DummyOutput
 from rich.console import Console
-import pytest
 
-from minerator.models import Sentence, WordBlock
 from minerator import ui
+from minerator.models import Sentence, WordBlock
 
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 
@@ -76,7 +76,10 @@ def test_render_block_indents_wrapped_explanation_lines(monkeypatch):
 
 
 def test_lines_to_words_strips_and_drops_blanks():
-    assert ui._lines_to_words("  give up \n\n break down \n") == ["give up", "break down"]
+    assert ui._lines_to_words("  give up \n\n break down \n") == [
+        "give up",
+        "break down",
+    ]
 
 
 def test_read_words_alt_enter_makes_newline_and_enter_submits():
@@ -189,8 +192,11 @@ def test_select_sentences_ctrl_c_raises_keyboard_interrupt():
 
 def test_render_block_omits_spacer_row_without_explanation_or_translations():
     block = WordBlock(
-        expression="give up", explanation="", translations=[],
-        grammar_class="Phrasal Verb", sentences=[],
+        expression="give up",
+        explanation="",
+        translations=[],
+        grammar_class="Phrasal Verb",
+        sentences=[],
     )
     with ui.console.capture() as cap:
         ui.render_block(block)
