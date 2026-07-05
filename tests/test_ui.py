@@ -1,3 +1,7 @@
+from prompt_toolkit.application import create_app_session
+from prompt_toolkit.input import create_pipe_input
+from prompt_toolkit.output import DummyOutput
+
 from minerator.models import Sentence, WordBlock
 from minerator import ui
 
@@ -36,3 +40,21 @@ def test_render_block_escapes_bracket_like_content_in_explanation():
     assert "[BrE]" in out
     assert "[informal]" in out
     assert "[archaic]" in out
+
+
+def test_lines_to_words_strips_and_drops_blanks():
+    assert ui._lines_to_words("  give up \n\n break down \n") == ["give up", "break down"]
+
+
+def test_read_words_alt_enter_makes_newline_and_enter_submits():
+    with create_pipe_input() as inp:
+        inp.send_text("give up\x1b\rbreak down\r")  # Alt+Enter, then Enter
+        with create_app_session(input=inp, output=DummyOutput()):
+            assert ui.read_words() == ["give up", "break down"]
+
+
+def test_read_words_ctrl_c_returns_empty():
+    with create_pipe_input() as inp:
+        inp.send_text("\x03")  # Ctrl+C
+        with create_app_session(input=inp, output=DummyOutput()):
+            assert ui.read_words() == []
