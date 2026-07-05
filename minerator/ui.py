@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import threading
 from contextlib import contextmanager
+from dataclasses import dataclass
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.application import Application
@@ -15,6 +17,7 @@ from rich.theme import Theme
 
 from minerator.cards import build_back
 from minerator.models import Sentence, WordBlock
+from minerator.tts.player import play_audio
 
 THEME = Theme(
     {
@@ -105,6 +108,29 @@ def creating_cards_status(card_count: int):
         yield
 
 
+@dataclass
+class _PreviewState:
+    text: str = ""
+    busy: bool = False
+
+
+def _fetch_and_play(
+    tts, cache: dict[str, bytes], text: str, state: _PreviewState, app
+) -> None:
+    try:
+        data = cache.get(text)
+        if data is None:
+            data = tts.synthesize(text)
+            cache[text] = data
+        play_audio(data)
+        state.text = ""
+    except Exception:
+        state.text = " ⚠ audio failed"
+    finally:
+        state.busy = False
+        app.invalidate()
+
+
 _SKIP = object()
 
 
@@ -119,7 +145,7 @@ def _resolve_selection(checked: list, pointed) -> list[Sentence]:
     return []
 
 
-def select_sentences(block: WordBlock) -> list[Sentence]:
+def select_sentences(block: WordBlock, tts=None) -> list[Sentence]:
     choices = []
     for sentence in block.sentences:
         title = (
@@ -131,14 +157,16 @@ def select_sentences(block: WordBlock) -> list[Sentence]:
     choices.append(Choice("✗ None (skip this word)", value=_SKIP))
 
     ic = InquirerControl(choices, None, pointer="❯", show_description=False)
+    cache: dict[str, bytes] = {}
+    state = _PreviewState()
 
     def get_tokens():
+        hint = "· space toggles · Enter confirms · empty Enter picks the arrowed one"
+        if tts is not None:
+            hint += " · p to preview"
         return [
             ("class:question", " Select sentences "),
-            (
-                "class:instruction",
-                "· space toggles · Enter confirms · empty Enter picks the arrowed one",
-            ),
+            ("class:instruction", hint + state.text),
         ]
 
     layout = create_inquirer_layout(ic, get_tokens)
@@ -156,6 +184,22 @@ def select_sentences(block: WordBlock) -> list[Sentence]:
             ic.selected_options.remove(value)
         else:
             ic.selected_options.append(value)
+
+    @bindings.add("p", eager=True)
+    def _preview(event):
+        if tts is None or state.busy:
+            return
+        value = ic.get_pointed_at().value
+        if value is _SKIP:
+            return
+        state.busy = True
+        state.text = " 🔊 loading…"
+        event.app.invalidate()
+        threading.Thread(
+            target=_fetch_and_play,
+            args=(tts, cache, value.text, state, event.app),
+            daemon=True,
+        ).start()
 
     def _down(event):
         ic.select_next()
