@@ -1,10 +1,19 @@
+import re
+
 from prompt_toolkit.application import create_app_session
 from prompt_toolkit.input import create_pipe_input
 from prompt_toolkit.output import DummyOutput
+from rich.console import Console
 import pytest
 
 from minerator.models import Sentence, WordBlock
 from minerator import ui
+
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+
+
+def _strip_ansi(text: str) -> str:
+    return _ANSI_RE.sub("", text)
 
 
 def _block():
@@ -41,6 +50,29 @@ def test_render_block_escapes_bracket_like_content_in_explanation():
     assert "[BrE]" in out
     assert "[informal]" in out
     assert "[archaic]" in out
+
+
+def test_render_block_indents_wrapped_explanation_lines(monkeypatch):
+    narrow = Console(theme=ui.THEME, width=60)
+    monkeypatch.setattr(ui, "console", narrow)
+    block = WordBlock(
+        expression="mundo",
+        explanation=(
+            "Substantivo. Refere-se ao planeta Terra e a tudo que existe "
+            "nele, incluindo a humanidade e a sociedade."
+        ),
+        translations=["Mundo", "Planeta", "Terra"],
+        grammar_class="Substantivo",
+        sentences=[],
+    )
+    with narrow.capture() as cap:
+        ui.render_block(block)
+    lines = [_strip_ansi(line) for line in cap.get().splitlines() if line.strip()]
+    meaning_idx = next(i for i, line in enumerate(lines) if "Meaning" in line)
+    continuation = lines[meaning_idx + 1]
+    assert not continuation.startswith("Substantivo")
+    leading_spaces = len(continuation) - len(continuation.lstrip(" "))
+    assert leading_spaces >= 8
 
 
 def test_lines_to_words_strips_and_drops_blanks():

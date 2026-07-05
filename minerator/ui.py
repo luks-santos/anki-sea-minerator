@@ -4,6 +4,7 @@ from contextlib import contextmanager
 
 from rich.console import Console
 from rich.markup import escape
+from rich.table import Table
 from rich.theme import Theme
 
 from prompt_toolkit import PromptSession
@@ -31,10 +32,7 @@ THEME = Theme(
     }
 )
 
-console = Console(theme=THEME)
-
-
-_LABEL_WIDTH = 11
+console = Console(theme=THEME, highlight=False)
 
 
 def render_block(block: WordBlock) -> None:
@@ -42,16 +40,18 @@ def render_block(block: WordBlock) -> None:
     grammar = f"  [mnr.grammar]{escape(block.grammar_class)}[/]" if block.grammar_class else ""
     console.print(f" [mnr.heading]{escape(block.expression)}[/]{grammar}")
     console.print()
+
+    table = Table.grid(padding=(0, 2, 0, 1), pad_edge=True)
+    table.add_column(style="mnr.label", no_wrap=True)
+    table.add_column()
     if block.explanation:
-        label = "Meaning".ljust(_LABEL_WIDTH)
-        console.print(f" [mnr.label]{label}[/][mnr.explanation]{escape(block.explanation)}[/]")
+        table.add_row("Meaning", f"[mnr.explanation]{escape(block.explanation)}[/]")
     if block.translations:
         pt = " · ".join(escape(t) for t in block.translations)
-        label = "PT".ljust(_LABEL_WIDTH)
-        console.print(f" [mnr.label]{label}[/][mnr.translation]{pt}[/]")
-    console.print()
-    label = "Card back".ljust(_LABEL_WIDTH)
-    console.print(f" [mnr.label]{label}[/][dim]{escape(build_back(block))}[/]")
+        table.add_row("PT", f"[mnr.translation]{pt}[/]")
+    table.add_row("", "")
+    table.add_row("Card back", f"[dim]{escape(build_back(block))}[/]")
+    console.print(table)
     console.print()
 
 

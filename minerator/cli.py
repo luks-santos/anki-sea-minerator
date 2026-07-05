@@ -20,7 +20,7 @@ from minerator.ui import (
 app = typer.Typer(help="Mine English vocabulary into Anki flashcards.")
 config_app = typer.Typer(help="Manage configuration.")
 app.add_typer(config_app, name="config")
-console = Console()
+console = Console(highlight=False)
 
 
 def _load() -> Config:
