@@ -1,7 +1,7 @@
 from typer.testing import CliRunner
 
+from minerator.cli import _read_words, app
 from minerator.config import Config, save_config
-from minerator.cli import app, _read_words
 from minerator.models import WordBlock
 
 runner = CliRunner()
@@ -39,7 +39,10 @@ def fake_ask(value):
 
 
 def test_check_reports_status(monkeypatch):
-    monkeypatch.setattr("minerator.cli.AnkiClient", lambda: type("C", (), {"ping": lambda self: False})())
+    monkeypatch.setattr(
+        "minerator.cli.AnkiClient",
+        lambda: type("C", (), {"ping": lambda self: False})(),
+    )
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     result = runner.invoke(app, ["check"])
     assert result.exit_code == 0
@@ -69,7 +72,9 @@ def test_config_edit_prompt_does_not_persist_env_sourced_api_key(monkeypatch, tm
 def test_mine_exits_if_note_type_missing(monkeypatch, tmp_path):
     monkeypatch.setattr("minerator.cli.config_path", lambda: tmp_path / "config.toml")
     monkeypatch.setenv("GEMINI_API_KEY", "key")
-    monkeypatch.setattr("minerator.cli.AnkiClient", lambda: FakeMineAnki(model_names=[]))
+    monkeypatch.setattr(
+        "minerator.cli.AnkiClient", lambda: FakeMineAnki(model_names=[])
+    )
     result = runner.invoke(app, ["mine"])
     assert result.exit_code == 1
     assert "Básico" in result.stdout
@@ -104,8 +109,11 @@ def test_mine_skips_word_block_with_no_sentences(monkeypatch, tmp_path):
     monkeypatch.setattr("questionary.select", lambda *a, **k: fake_ask("Default"))
 
     empty_block = WordBlock(
-        expression="foo", explanation="", translations=["bar"],
-        grammar_class="Noun", sentences=[],
+        expression="foo",
+        explanation="",
+        translations=["bar"],
+        grammar_class="Noun",
+        sentences=[],
     )
     monkeypatch.setattr(
         "minerator.cli.GeminiConnector",
@@ -127,7 +135,8 @@ def test_mine_reports_error_when_gemini_raises(monkeypatch, tmp_path):
         raise ValueError("malformed mining response")
 
     monkeypatch.setattr(
-        "minerator.cli.GeminiConnector", lambda *a, **k: type("C", (), {"mine": raise_mine})()
+        "minerator.cli.GeminiConnector",
+        lambda *a, **k: type("C", (), {"mine": raise_mine})(),
     )
 
     result = runner.invoke(app, ["mine"], input="word1\n\n")
@@ -150,7 +159,8 @@ def test_mine_rejects_unknown_tts_engine_before_calling_gemini(monkeypatch, tmp_
         return []
 
     monkeypatch.setattr(
-        "minerator.cli.GeminiConnector", lambda *a, **k: type("C", (), {"mine": fake_mine})()
+        "minerator.cli.GeminiConnector",
+        lambda *a, **k: type("C", (), {"mine": fake_mine})(),
     )
 
     result = runner.invoke(app, ["mine"], input="word1\n\n")
@@ -166,7 +176,7 @@ def test_read_words_stops_gracefully_on_eof(monkeypatch):
         try:
             return next(lines)
         except StopIteration:
-            raise EOFError
+            raise EOFError from None
 
     monkeypatch.setattr("builtins.input", fake_input)
     assert _read_words() == ["word1", "word2"]

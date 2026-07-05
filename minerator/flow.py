@@ -41,7 +41,9 @@ def create_card(
     fields = {cfg.front_field: front, cfg.back_field: back}
 
     try:
-        note_id = anki.add_note(deck, cfg.note_type, fields, tags=["anki-sea-minerator"])
+        note_id = anki.add_note(
+            deck, cfg.note_type, fields, tags=["anki-sea-minerator"]
+        )
     except Exception as exc:
         warnings.append(f"card not created: {exc}")
         return CardResult(

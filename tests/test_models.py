@@ -12,7 +12,11 @@ def sample_payload():
                 "translations": ["Desistir", "Parar"],
                 "grammar_class": "Phrasal Verb",
                 "sentences": [
-                    {"text": "Never give up.", "highlight": "give up", "note": "imperative"},
+                    {
+                        "text": "Never give up.",
+                        "highlight": "give up",
+                        "note": "imperative",
+                    },
                     {"text": "He gave up.", "highlight": "gave up"},
                 ],
             }
@@ -27,7 +31,9 @@ def test_parse_builds_word_blocks():
     assert isinstance(w, WordBlock)
     assert w.expression == "give up"
     assert w.translations == ["Desistir", "Parar"]
-    assert w.sentences[0] == Sentence(text="Never give up.", highlight="give up", note="imperative")
+    assert w.sentences[0] == Sentence(
+        text="Never give up.", highlight="give up", note="imperative"
+    )
     assert w.sentences[1].note == ""  # note defaults to empty
 
 

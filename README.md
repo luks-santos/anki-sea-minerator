@@ -83,3 +83,7 @@ minerator check          # verify Anki + API key
 minerator config show    # inspect configuration
 minerator mine           # interactive mining session
 ```
+
+## License
+
+MIT — see [LICENSE](LICENSE).
