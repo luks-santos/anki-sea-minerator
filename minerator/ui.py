@@ -90,6 +90,31 @@ def read_words() -> list[str]:
     return _lines_to_words(text)
 
 
+def read_import_pairs() -> str:
+    bindings = KeyBindings()
+
+    @bindings.add(Keys.Enter, eager=True)
+    def _submit(event):
+        event.current_buffer.validate_and_handle()
+
+    @bindings.add("escape", "enter")  # Alt+Enter
+    @bindings.add(Keys.ControlJ)  # Ctrl+J
+    def _newline(event):
+        event.current_buffer.insert_text("\n")
+
+    console.print()
+    console.print(
+        " [mnr.heading]Paste cards[/]"
+        "  [mnr.label]· front line, back line, blank line between cards"
+        " · Enter to submit · Alt+Enter or Ctrl+J for a new line[/]"
+    )
+    session: PromptSession = PromptSession(multiline=True, key_bindings=bindings)
+    try:
+        return session.prompt(" › ")
+    except (KeyboardInterrupt, EOFError):
+        return ""
+
+
 @contextmanager
 def mining_status(word_count: int):
     with console.status(

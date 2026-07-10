@@ -96,6 +96,25 @@ def test_read_words_ctrl_c_returns_empty():
             assert ui.read_words() == []
 
 
+def test_read_import_pairs_alt_enter_makes_newline_and_enter_submits():
+    with create_pipe_input() as inp:
+        inp.send_text(
+            "[Grammar] We had a bad day.\x1b\rNós tivemos um dia ruim.\r"
+        )  # Alt+Enter, then Enter
+        with create_app_session(input=inp, output=DummyOutput()):
+            assert (
+                ui.read_import_pairs()
+                == "[Grammar] We had a bad day.\nNós tivemos um dia ruim."
+            )
+
+
+def test_read_import_pairs_ctrl_c_returns_empty_string():
+    with create_pipe_input() as inp:
+        inp.send_text("\x03")  # Ctrl+C
+        with create_app_session(input=inp, output=DummyOutput()):
+            assert ui.read_import_pairs() == ""
+
+
 def test_mining_status_prints_summary_on_success():
     with ui.console.capture() as cap:
         with ui.mining_status(3):
