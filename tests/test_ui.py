@@ -346,3 +346,18 @@ def test_render_import_preview_lists_front_and_back():
     assert "Nós tivemos um dia ruim." in out
     assert "Plain sentence." in out
     assert "Frase simples." in out
+
+
+def test_render_import_preview_escapes_real_rich_markup_in_front_and_back():
+    cards = [
+        ImportedCard(
+            front="[bold]shout[/bold]", back="[red]danger[/red]"
+        ),
+    ]
+    with ui.console.capture() as cap:
+        ui.render_import_preview(cards)
+    out = _strip_ansi(cap.get())
+    # If escape() is called, these tags appear literally in output.
+    # If escape() is NOT called, Rich parses them and they disappear from the text.
+    assert "[bold]shout[/bold]" in out
+    assert "[red]danger[/red]" in out
