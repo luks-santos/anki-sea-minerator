@@ -78,17 +78,7 @@ def config_toggle_strip_tags() -> None:
     console.print(f"strip_bracket_tags: {state}")
 
 
-@app.command()
-def mine() -> None:
-    """Run an interactive mining session."""
-    import questionary
-
-    cfg = _load()
-    if not cfg.gemini_api_key:
-        console.print("[red]No Gemini API key configured.[/red]")
-        raise typer.Exit(1)
-
-    anki = AnkiClient()
+def _ensure_anki_ready(cfg: Config, anki: AnkiClient) -> None:
     if not anki.ping():
         console.print(
             "[red]AnkiConnect not reachable. Open Anki with the add-on.[/red]"
@@ -108,6 +98,20 @@ def mine() -> None:
             f"'{cfg.note_type}'.[/red]"
         )
         raise typer.Exit(1)
+
+
+@app.command()
+def mine() -> None:
+    """Run an interactive mining session."""
+    import questionary
+
+    cfg = _load()
+    if not cfg.gemini_api_key:
+        console.print("[red]No Gemini API key configured.[/red]")
+        raise typer.Exit(1)
+
+    anki = AnkiClient()
+    _ensure_anki_ready(cfg, anki)
 
     words = read_words()
     if not words:
