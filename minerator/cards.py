@@ -5,6 +5,12 @@ import re
 
 from minerator.models import WordBlock
 
+_BRACKET_TAG_RE = re.compile(r"^\[[^\]]*\]\s*")
+
+
+def strip_bracket_tag(text: str) -> str:
+    return _BRACKET_TAG_RE.sub("", text, count=1)
+
 
 def highlight_html(text: str, highlight: str, color: str) -> str:
     if not highlight:

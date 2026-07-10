@@ -1,4 +1,10 @@
-from minerator.cards import audio_filename, build_back, build_front, highlight_html
+from minerator.cards import (
+    audio_filename,
+    build_back,
+    build_front,
+    highlight_html,
+    strip_bracket_tag,
+)
 from minerator.models import WordBlock
 
 
@@ -63,3 +69,23 @@ def test_build_back_preserves_internal_capitals():
         sentences=[],
     )
     assert build_back(word) == "NASA: NASA (Noun)"
+
+
+def test_strip_bracket_tag_removes_leading_tag():
+    assert strip_bracket_tag("[Grammar] We had a bad day.") == "We had a bad day."
+
+
+def test_strip_bracket_tag_noop_without_tag():
+    assert strip_bracket_tag("We had a bad day.") == "We had a bad day."
+
+
+def test_strip_bracket_tag_handles_empty_brackets():
+    assert strip_bracket_tag("[] Empty tag.") == "Empty tag."
+
+
+def test_strip_bracket_tag_handles_special_characters_in_tag():
+    assert strip_bracket_tag("[a.b*c+d] Weird chars.") == "Weird chars."
+
+
+def test_strip_bracket_tag_ignores_mid_string_brackets():
+    assert strip_bracket_tag("Mid [Grammar] sentence.") == "Mid [Grammar] sentence."
