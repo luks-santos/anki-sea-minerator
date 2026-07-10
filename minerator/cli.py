@@ -219,10 +219,19 @@ def import_cards() -> None:
         raise typer.Exit(1) from exc
 
     total_created = 0
-    with creating_cards_status(len(cards)):
-        for res in create_imported_cards(cards, cfg, deck, anki, tts):
-            total_created += 1 if res.created else 0
-            if res.warning:
-                console.print(f"[yellow]! {res.warning}[/yellow]")
+    try:
+        with creating_cards_status(len(cards)):
+            for res in create_imported_cards(cards, cfg, deck, anki, tts):
+                total_created += 1 if res.created else 0
+                if res.warning:
+                    console.print(f"[yellow]! {res.warning}[/yellow]")
+    except KeyboardInterrupt:
+        console.print("\nCancelled.")
+        console.print(f"[green]Cards created: {total_created}[/green]")
+        raise typer.Exit(0) from None
+    except Exception as exc:
+        console.print(f"[red]Failed to create cards: {exc}[/red]")
+        console.print(f"[green]Cards created so far: {total_created}[/green]")
+        raise typer.Exit(1) from exc
 
     console.print(f"\n[green]Done. Cards created: {total_created}[/green]")

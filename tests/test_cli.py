@@ -411,6 +411,53 @@ def test_import_creates_cards_after_confirmation(monkeypatch, tmp_path):
     assert anki.notes[0]["Verso"] == "Nós tivemos um dia ruim."
 
 
+def test_import_reports_error_when_card_creation_raises(monkeypatch, tmp_path):
+    monkeypatch.setattr("minerator.cli.config_path", lambda: tmp_path / "config.toml")
+    anki = FakeMineAnki()
+    monkeypatch.setattr("minerator.cli.AnkiClient", lambda: anki)
+    monkeypatch.setattr(
+        "minerator.cli.read_import_pairs",
+        lambda: "[Grammar] We had a bad day.\nNós tivemos um dia ruim.",
+    )
+    monkeypatch.setattr("questionary.confirm", lambda *a, **k: fake_ask(True))
+    monkeypatch.setattr("questionary.select", lambda *a, **k: fake_ask("Default"))
+    monkeypatch.setattr("minerator.cli.get_engine", lambda *a, **k: None)
+
+    def raise_create_imported_cards(*a, **k):
+        raise RuntimeError("Anki connection dropped")
+
+    monkeypatch.setattr(
+        "minerator.cli.create_imported_cards", raise_create_imported_cards
+    )
+
+    result = runner.invoke(app, ["import"])
+    assert result.exit_code == 1
+    assert "Failed to create cards" in result.stdout
+
+
+def test_import_stops_cleanly_when_card_creation_interrupted(monkeypatch, tmp_path):
+    monkeypatch.setattr("minerator.cli.config_path", lambda: tmp_path / "config.toml")
+    anki = FakeMineAnki()
+    monkeypatch.setattr("minerator.cli.AnkiClient", lambda: anki)
+    monkeypatch.setattr(
+        "minerator.cli.read_import_pairs",
+        lambda: "[Grammar] We had a bad day.\nNós tivemos um dia ruim.",
+    )
+    monkeypatch.setattr("questionary.confirm", lambda *a, **k: fake_ask(True))
+    monkeypatch.setattr("questionary.select", lambda *a, **k: fake_ask("Default"))
+    monkeypatch.setattr("minerator.cli.get_engine", lambda *a, **k: None)
+
+    def raise_interrupt(*a, **k):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr("minerator.cli.create_imported_cards", raise_interrupt)
+
+    result = runner.invoke(app, ["import"])
+    assert result.exit_code == 0
+    assert "Cancelled" in result.stdout
+    assert len(anki.notes) == 0
+
+
 def test_config_toggle_strip_tags_flips_and_persists(monkeypatch, tmp_path):
     cfg_file = tmp_path / "config.toml"
     monkeypatch.setattr("minerator.cli.config_path", lambda: cfg_file)
