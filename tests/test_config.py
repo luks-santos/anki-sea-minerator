@@ -10,6 +10,7 @@ def test_defaults_match_spec():
     assert cfg.front_field == "Frente"
     assert cfg.back_field == "Verso"
     assert cfg.highlight_color == "#2563eb"
+    assert cfg.strip_bracket_tags is True
 
 
 def test_save_then_load_roundtrip(tmp_path, monkeypatch):
@@ -41,3 +42,10 @@ def test_use_env_false_ignores_env_override(tmp_path, monkeypatch):
     save_config(Config(gemini_api_key="from-file"), path)
     monkeypatch.setenv("GEMINI_API_KEY", "from-env")
     assert load_config(path, use_env=False).gemini_api_key == "from-file"
+
+
+def test_strip_bracket_tags_roundtrips_false(tmp_path, monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    path = tmp_path / "config.toml"
+    save_config(Config(strip_bracket_tags=False), path)
+    assert load_config(path).strip_bracket_tags is False
