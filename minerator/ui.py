@@ -16,7 +16,7 @@ from rich.table import Table
 from rich.theme import Theme
 
 from minerator.cards import build_back
-from minerator.models import Sentence, WordBlock
+from minerator.models import ImportedCard, Sentence, WordBlock
 from minerator.tts.player import play_audio
 
 THEME = Theme(
@@ -57,6 +57,17 @@ def render_block(block: WordBlock) -> None:
     if block.explanation or block.translations:
         table.add_row("", "")
     table.add_row("Card back", f"[dim]{escape(build_back(block))}[/]")
+    console.print(table)
+    console.print()
+
+
+def render_import_preview(cards: list[ImportedCard]) -> None:
+    console.print()
+    table = Table(title="Cards to import", show_lines=True)
+    table.add_column("Front", style="mnr.explanation")
+    table.add_column("Back", style="mnr.translation")
+    for card in cards:
+        table.add_row(escape(card.front), escape(card.back))
     console.print(table)
     console.print()
 
