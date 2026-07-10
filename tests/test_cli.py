@@ -1,7 +1,7 @@
 from typer.testing import CliRunner
 
 from minerator.cli import app
-from minerator.config import Config, save_config
+from minerator.config import Config, load_config, save_config
 from minerator.models import Sentence, WordBlock
 
 runner = CliRunner()
@@ -332,3 +332,19 @@ def test_mine_passes_tts_engine_to_select_sentences(monkeypatch, tmp_path):
     result = runner.invoke(app, ["mine"])
     assert result.exit_code == 0
     assert received["tts"] is fake_tts
+
+
+def test_config_toggle_strip_tags_flips_and_persists(monkeypatch, tmp_path):
+    cfg_file = tmp_path / "config.toml"
+    monkeypatch.setattr("minerator.cli.config_path", lambda: cfg_file)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+
+    result = runner.invoke(app, ["config", "toggle-strip-tags"])
+    assert result.exit_code == 0
+    assert "disabled" in result.stdout
+    assert load_config(cfg_file).strip_bracket_tags is False
+
+    result = runner.invoke(app, ["config", "toggle-strip-tags"])
+    assert result.exit_code == 0
+    assert "enabled" in result.stdout
+    assert load_config(cfg_file).strip_bracket_tags is True

@@ -68,6 +68,16 @@ def config_edit_prompt() -> None:
     console.print(f"Edit your prompt at: {path}")
 
 
+@config_app.command("toggle-strip-tags")
+def config_toggle_strip_tags() -> None:
+    """Toggle whether a leading [Tag] is stripped from text before TTS."""
+    file_cfg = load_config(config_path(), use_env=False)
+    file_cfg.strip_bracket_tags = not file_cfg.strip_bracket_tags
+    save_config(file_cfg, config_path())
+    state = "enabled" if file_cfg.strip_bracket_tags else "disabled"
+    console.print(f"strip_bracket_tags: {state}")
+
+
 @app.command()
 def mine() -> None:
     """Run an interactive mining session."""
