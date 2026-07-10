@@ -334,6 +334,83 @@ def test_mine_passes_tts_engine_to_select_sentences(monkeypatch, tmp_path):
     assert received["tts"] is fake_tts
 
 
+def test_import_exits_if_note_type_missing(monkeypatch, tmp_path):
+    monkeypatch.setattr("minerator.cli.config_path", lambda: tmp_path / "config.toml")
+    monkeypatch.setattr(
+        "minerator.cli.AnkiClient", lambda: FakeMineAnki(model_names=[])
+    )
+    result = runner.invoke(app, ["import"])
+    assert result.exit_code == 1
+    assert "Básico" in result.stdout
+
+
+def test_import_reports_nothing_to_import_on_empty_paste(monkeypatch, tmp_path):
+    monkeypatch.setattr("minerator.cli.config_path", lambda: tmp_path / "config.toml")
+    monkeypatch.setattr("minerator.cli.AnkiClient", lambda: FakeMineAnki())
+    monkeypatch.setattr("minerator.cli.read_import_pairs", lambda: "")
+    result = runner.invoke(app, ["import"])
+    assert result.exit_code == 0
+    assert "Nothing to import" in result.stdout
+
+
+def test_import_reports_warnings_for_malformed_blocks(monkeypatch, tmp_path):
+    monkeypatch.setattr("minerator.cli.config_path", lambda: tmp_path / "config.toml")
+    monkeypatch.setattr("minerator.cli.AnkiClient", lambda: FakeMineAnki())
+    monkeypatch.setattr("minerator.cli.read_import_pairs", lambda: "Front only line.")
+    result = runner.invoke(app, ["import"])
+    assert result.exit_code == 0
+    assert "block 1 skipped" in result.stdout
+    assert "Nothing to import" in result.stdout
+
+
+def test_import_cancels_when_confirmation_declined(monkeypatch, tmp_path):
+    monkeypatch.setattr("minerator.cli.config_path", lambda: tmp_path / "config.toml")
+    anki = FakeMineAnki()
+    monkeypatch.setattr("minerator.cli.AnkiClient", lambda: anki)
+    monkeypatch.setattr(
+        "minerator.cli.read_import_pairs",
+        lambda: "[Grammar] We had a bad day.\nNós tivemos um dia ruim.",
+    )
+    monkeypatch.setattr("questionary.confirm", lambda *a, **k: fake_ask(False))
+    result = runner.invoke(app, ["import"])
+    assert result.exit_code == 0
+    assert "Cancelled" in result.stdout
+    assert anki.notes == []
+
+
+def test_import_exits_cleanly_when_deck_selection_cancelled(monkeypatch, tmp_path):
+    monkeypatch.setattr("minerator.cli.config_path", lambda: tmp_path / "config.toml")
+    monkeypatch.setattr("minerator.cli.AnkiClient", lambda: FakeMineAnki())
+    monkeypatch.setattr(
+        "minerator.cli.read_import_pairs", lambda: "Front.\nBack."
+    )
+    monkeypatch.setattr("questionary.confirm", lambda *a, **k: fake_ask(True))
+    monkeypatch.setattr("questionary.select", lambda *a, **k: fake_ask(None))
+    result = runner.invoke(app, ["import"])
+    assert result.exit_code == 0
+    assert "Cancelled" in result.stdout
+
+
+def test_import_creates_cards_after_confirmation(monkeypatch, tmp_path):
+    monkeypatch.setattr("minerator.cli.config_path", lambda: tmp_path / "config.toml")
+    anki = FakeMineAnki()
+    monkeypatch.setattr("minerator.cli.AnkiClient", lambda: anki)
+    monkeypatch.setattr(
+        "minerator.cli.read_import_pairs",
+        lambda: "[Grammar] We had a bad day.\nNós tivemos um dia ruim.",
+    )
+    monkeypatch.setattr("questionary.confirm", lambda *a, **k: fake_ask(True))
+    monkeypatch.setattr("questionary.select", lambda *a, **k: fake_ask("Default"))
+    monkeypatch.setattr("minerator.cli.get_engine", lambda *a, **k: None)
+
+    result = runner.invoke(app, ["import"])
+    assert result.exit_code == 0
+    assert "Cards created: 1" in result.stdout
+    assert len(anki.notes) == 1
+    assert anki.notes[0]["Frente"] == "[Grammar] We had a bad day."
+    assert anki.notes[0]["Verso"] == "Nós tivemos um dia ruim."
+
+
 def test_config_toggle_strip_tags_flips_and_persists(monkeypatch, tmp_path):
     cfg_file = tmp_path / "config.toml"
     monkeypatch.setattr("minerator.cli.config_path", lambda: cfg_file)
