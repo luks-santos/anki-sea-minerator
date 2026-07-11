@@ -381,9 +381,7 @@ def test_import_cancels_when_confirmation_declined(monkeypatch, tmp_path):
 def test_import_exits_cleanly_when_deck_selection_cancelled(monkeypatch, tmp_path):
     monkeypatch.setattr("minerator.cli.config_path", lambda: tmp_path / "config.toml")
     monkeypatch.setattr("minerator.cli.AnkiClient", lambda: FakeMineAnki())
-    monkeypatch.setattr(
-        "minerator.cli.read_import_pairs", lambda: "Front.\nBack."
-    )
+    monkeypatch.setattr("minerator.cli.read_import_pairs", lambda: "Front.\nBack.")
     monkeypatch.setattr("questionary.confirm", lambda *a, **k: fake_ask(True))
     monkeypatch.setattr("questionary.select", lambda *a, **k: fake_ask(None))
     result = runner.invoke(app, ["import"])

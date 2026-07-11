@@ -350,9 +350,7 @@ def test_render_import_preview_lists_front_and_back():
 
 def test_render_import_preview_escapes_real_rich_markup_in_front_and_back():
     cards = [
-        ImportedCard(
-            front="[bold]shout[/bold]", back="[red]danger[/red]"
-        ),
+        ImportedCard(front="[bold]shout[/bold]", back="[red]danger[/red]"),
     ]
     with ui.console.capture() as cap:
         ui.render_import_preview(cards)
