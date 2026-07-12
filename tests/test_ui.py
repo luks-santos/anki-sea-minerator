@@ -7,7 +7,7 @@ from prompt_toolkit.output import DummyOutput
 from rich.console import Console
 
 from minerator import ui
-from minerator.models import Sentence, WordBlock
+from minerator.models import ImportedCard, Sentence, WordBlock
 
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 
@@ -94,6 +94,25 @@ def test_read_words_ctrl_c_returns_empty():
         inp.send_text("\x03")  # Ctrl+C
         with create_app_session(input=inp, output=DummyOutput()):
             assert ui.read_words() == []
+
+
+def test_read_import_pairs_alt_enter_makes_newline_and_enter_submits():
+    with create_pipe_input() as inp:
+        inp.send_text(
+            "[Grammar] We had a bad day.\x1b\rNós tivemos um dia ruim.\r"
+        )  # Alt+Enter, then Enter
+        with create_app_session(input=inp, output=DummyOutput()):
+            assert (
+                ui.read_import_pairs()
+                == "[Grammar] We had a bad day.\nNós tivemos um dia ruim."
+            )
+
+
+def test_read_import_pairs_ctrl_c_returns_empty_string():
+    with create_pipe_input() as inp:
+        inp.send_text("\x03")  # Ctrl+C
+        with create_app_session(input=inp, output=DummyOutput()):
+            assert ui.read_import_pairs() == ""
 
 
 def test_mining_status_prints_summary_on_success():
@@ -311,3 +330,32 @@ def test_render_block_omits_spacer_row_without_explanation_or_translations():
     non_blank = [line for line in stripped_lines if line.strip()]
     assert len(non_blank) == 3  # rule + heading line + Card back line, no spacer row
     assert "Card back" in non_blank[2]
+
+
+def test_render_import_preview_lists_front_and_back():
+    cards = [
+        ImportedCard(
+            front="[Grammar] We had a bad day.", back="Nós tivemos um dia ruim."
+        ),
+        ImportedCard(front="Plain sentence.", back="Frase simples."),
+    ]
+    with ui.console.capture() as cap:
+        ui.render_import_preview(cards)
+    out = _strip_ansi(cap.get())
+    assert "We had a bad day." in out
+    assert "Nós tivemos um dia ruim." in out
+    assert "Plain sentence." in out
+    assert "Frase simples." in out
+
+
+def test_render_import_preview_escapes_real_rich_markup_in_front_and_back():
+    cards = [
+        ImportedCard(front="[bold]shout[/bold]", back="[red]danger[/red]"),
+    ]
+    with ui.console.capture() as cap:
+        ui.render_import_preview(cards)
+    out = _strip_ansi(cap.get())
+    # If escape() is called, these tags appear literally in output.
+    # If escape() is NOT called, Rich parses them and they disappear from the text.
+    assert "[bold]shout[/bold]" in out
+    assert "[red]danger[/red]" in out

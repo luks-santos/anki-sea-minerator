@@ -6,14 +6,17 @@ from rich.console import Console
 from minerator.ai.gemini import GeminiConnector
 from minerator.anki.client import AnkiClient
 from minerator.config import Config, config_path, load_config, save_config
-from minerator.flow import create_cards_for_selection
+from minerator.flow import create_cards_for_selection, create_imported_cards
+from minerator.models import parse_imported_text
 from minerator.prompt import DEFAULT_PROMPT, load_prompt
 from minerator.tts.base import get_engine
 from minerator.ui import (
     creating_cards_status,
     mining_status,
+    read_import_pairs,
     read_words,
     render_block,
+    render_import_preview,
     select_sentences,
 )
 
@@ -68,17 +71,17 @@ def config_edit_prompt() -> None:
     console.print(f"Edit your prompt at: {path}")
 
 
-@app.command()
-def mine() -> None:
-    """Run an interactive mining session."""
-    import questionary
+@config_app.command("toggle-strip-tags")
+def config_toggle_strip_tags() -> None:
+    """Toggle whether a leading [Tag] is stripped from text before TTS."""
+    file_cfg = load_config(config_path(), use_env=False)
+    file_cfg.strip_bracket_tags = not file_cfg.strip_bracket_tags
+    save_config(file_cfg, config_path())
+    state = "enabled" if file_cfg.strip_bracket_tags else "disabled"
+    console.print(f"strip_bracket_tags: {state}")
 
-    cfg = _load()
-    if not cfg.gemini_api_key:
-        console.print("[red]No Gemini API key configured.[/red]")
-        raise typer.Exit(1)
 
-    anki = AnkiClient()
+def _ensure_anki_ready(cfg: Config, anki: AnkiClient) -> None:
     if not anki.ping():
         console.print(
             "[red]AnkiConnect not reachable. Open Anki with the add-on.[/red]"
@@ -98,6 +101,20 @@ def mine() -> None:
             f"'{cfg.note_type}'.[/red]"
         )
         raise typer.Exit(1)
+
+
+@app.command()
+def mine() -> None:
+    """Run an interactive mining session."""
+    import questionary
+
+    cfg = _load()
+    if not cfg.gemini_api_key:
+        console.print("[red]No Gemini API key configured.[/red]")
+        raise typer.Exit(1)
+
+    anki = AnkiClient()
+    _ensure_anki_ready(cfg, anki)
 
     words = read_words()
     if not words:
@@ -147,6 +164,67 @@ def mine() -> None:
                     total_created += 1 if res.created else 0
                     if res.warning:
                         console.print(f"[yellow]! {res.warning}[/yellow]")
+    except KeyboardInterrupt:
+        console.print("\nCancelled.")
+        console.print(f"[green]Cards created: {total_created}[/green]")
+        raise typer.Exit(0) from None
+    except Exception as exc:
+        console.print(f"[red]Failed to create cards: {exc}[/red]")
+        console.print(f"[green]Cards created so far: {total_created}[/green]")
+        raise typer.Exit(1) from exc
+
+    console.print(f"\n[green]Done. Cards created: {total_created}[/green]")
+
+
+@app.command("import")
+def import_cards() -> None:
+    """Import ready-made front/back pairs (no Gemini) and create Anki cards."""
+    import questionary
+
+    cfg = _load()
+    anki = AnkiClient()
+    _ensure_anki_ready(cfg, anki)
+
+    text = read_import_pairs()
+    if not text.strip():
+        console.print("Nothing to import.")
+        raise typer.Exit(0)
+
+    cards, warnings = parse_imported_text(text)
+    for warning in warnings:
+        console.print(f"[yellow]! {warning}[/yellow]")
+    if not cards:
+        console.print("Nothing to import.")
+        raise typer.Exit(0)
+
+    render_import_preview(cards)
+    if not questionary.confirm(f"Create {len(cards)} card(s)?", default=True).ask():
+        console.print("Cancelled.")
+        raise typer.Exit(0)
+
+    decks = anki.deck_names()
+    deck = questionary.select(
+        "Target deck:",
+        choices=decks,
+        default=cfg.default_deck if cfg.default_deck in decks else None,
+    ).ask()
+    if deck is None:
+        console.print("Cancelled.")
+        raise typer.Exit(0)
+
+    try:
+        tts = get_engine(cfg.tts_engine, cfg.tts_voice)
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1) from exc
+
+    total_created = 0
+    try:
+        with creating_cards_status(len(cards)):
+            for res in create_imported_cards(cards, cfg, deck, anki, tts):
+                total_created += 1 if res.created else 0
+                if res.warning:
+                    console.print(f"[yellow]! {res.warning}[/yellow]")
     except KeyboardInterrupt:
         console.print("\nCancelled.")
         console.print(f"[green]Cards created: {total_created}[/green]")

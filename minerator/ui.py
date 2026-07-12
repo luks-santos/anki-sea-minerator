@@ -16,7 +16,7 @@ from rich.table import Table
 from rich.theme import Theme
 
 from minerator.cards import build_back
-from minerator.models import Sentence, WordBlock
+from minerator.models import ImportedCard, Sentence, WordBlock
 from minerator.tts.player import play_audio
 
 THEME = Theme(
@@ -61,6 +61,17 @@ def render_block(block: WordBlock) -> None:
     console.print()
 
 
+def render_import_preview(cards: list[ImportedCard]) -> None:
+    console.print()
+    table = Table(title="Cards to import", show_lines=True)
+    table.add_column("Front", style="mnr.explanation")
+    table.add_column("Back", style="mnr.translation")
+    for card in cards:
+        table.add_row(escape(card.front), escape(card.back))
+    console.print(table)
+    console.print()
+
+
 def _lines_to_words(text: str) -> list[str]:
     return [line.strip() for line in text.splitlines() if line.strip()]
 
@@ -88,6 +99,31 @@ def read_words() -> list[str]:
     except (KeyboardInterrupt, EOFError):
         return []
     return _lines_to_words(text)
+
+
+def read_import_pairs() -> str:
+    bindings = KeyBindings()
+
+    @bindings.add(Keys.Enter, eager=True)
+    def _submit(event):
+        event.current_buffer.validate_and_handle()
+
+    @bindings.add("escape", "enter")  # Alt+Enter
+    @bindings.add(Keys.ControlJ)  # Ctrl+J
+    def _newline(event):
+        event.current_buffer.insert_text("\n")
+
+    console.print()
+    console.print(
+        " [mnr.heading]Paste cards[/]"
+        "  [mnr.label]· front line, back line, blank line between cards"
+        " · Enter to submit · Alt+Enter or Ctrl+J for a new line[/]"
+    )
+    session: PromptSession = PromptSession(multiline=True, key_bindings=bindings)
+    try:
+        return session.prompt(" › ")
+    except (KeyboardInterrupt, EOFError):
+        return ""
 
 
 @contextmanager

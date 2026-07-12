@@ -23,6 +23,7 @@ class Config:
     tts_voice: str = "en-US-EmmaNeural"
     highlight_color: str = "#2563eb"
     prompt_path: str = ""
+    strip_bracket_tags: bool = True
 
 
 def config_path() -> Path:
