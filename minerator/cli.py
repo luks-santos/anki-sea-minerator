@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+
 import typer
 from rich.console import Console
 
@@ -81,6 +83,23 @@ def config_toggle_strip_tags() -> None:
     console.print(f"strip_bracket_tags: {state}")
 
 
+def _format_elapsed(seconds: float) -> str:
+    total_seconds = int(seconds)
+    hours, remainder = divmod(total_seconds, 3600)
+    minutes, secs = divmod(remainder, 60)
+    if hours:
+        return f"{hours}h {minutes}m {secs}s"
+    if minutes:
+        return f"{minutes}m {secs}s"
+    return f"{secs}s"
+
+
+def _elapsed_since(start_time: float | None) -> str:
+    if start_time is None:
+        return _format_elapsed(0)
+    return _format_elapsed(time.monotonic() - start_time)
+
+
 def _ensure_anki_ready(cfg: Config, anki: AnkiClient) -> None:
     if not anki.ping():
         console.print(
@@ -146,6 +165,7 @@ def mine() -> None:
         raise typer.Exit(1) from exc
 
     total_created = 0
+    start_time: float | None = None
     try:
         for block in blocks:
             render_block(block)
@@ -154,6 +174,8 @@ def mine() -> None:
                     f"[yellow]! no sentences returned for '{block.expression}'[/yellow]"
                 )
                 continue
+            if start_time is None:
+                start_time = time.monotonic()
             selected = select_sentences(block, tts)
             if not selected:
                 continue
@@ -166,14 +188,23 @@ def mine() -> None:
                         console.print(f"[yellow]! {res.warning}[/yellow]")
     except KeyboardInterrupt:
         console.print("\nCancelled.")
-        console.print(f"[green]Cards created: {total_created}[/green]")
+        console.print(
+            f"[green]Cards created: {total_created}. "
+            f"Time spent: {_elapsed_since(start_time)}[/green]"
+        )
         raise typer.Exit(0) from None
     except Exception as exc:
         console.print(f"[red]Failed to create cards: {exc}[/red]")
-        console.print(f"[green]Cards created so far: {total_created}[/green]")
+        console.print(
+            f"[green]Cards created so far: {total_created}. "
+            f"Time spent: {_elapsed_since(start_time)}[/green]"
+        )
         raise typer.Exit(1) from exc
 
-    console.print(f"\n[green]Done. Cards created: {total_created}[/green]")
+    console.print(
+        f"\n[green]Done. Cards created: {total_created}. "
+        f"Time spent: {_elapsed_since(start_time)}[/green]"
+    )
 
 
 @app.command("import")
