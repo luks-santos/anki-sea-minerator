@@ -66,3 +66,46 @@ def test_ensure_notetype_restores_a_stripped_tts_tag(col):
 
     front = col.models.by_name(NOTE_TYPE_NAME)["tmpls"][0]["qfmt"]
     assert "{{tts en_US:text:Front}}" in front
+
+
+def test_ensure_notetype_restores_a_renamed_field(col):
+    ensure_notetype(col, "en_US")
+    model = col.models.by_name(NOTE_TYPE_NAME)
+    col.models.rename_field(model, model["flds"][0], "Frente")
+    col.models.save(model)
+
+    ensure_notetype(col, "en_US")
+
+    model = col.models.by_name(NOTE_TYPE_NAME)
+    assert [f["name"] for f in model["flds"]] == [FRONT_FIELD, BACK_FIELD]
+
+
+def test_ensure_notetype_restores_a_missing_field(col):
+    ensure_notetype(col, "en_US")
+    model = col.models.by_name(NOTE_TYPE_NAME)
+    col.models.remove_field(model, model["flds"][1])
+    col.models.save(model)
+
+    ensure_notetype(col, "en_US")
+
+    model = col.models.by_name(NOTE_TYPE_NAME)
+    assert [f["name"] for f in model["flds"]] == [FRONT_FIELD, BACK_FIELD]
+
+
+def test_ensure_notetype_is_usable_after_field_drift_is_repaired(col):
+    ensure_notetype(col, "en_US")
+    model = col.models.by_name(NOTE_TYPE_NAME)
+    col.models.rename_field(model, model["flds"][0], "Frente")
+    col.models.save(model)
+
+    ensure_notetype(col, "en_US")
+
+    model = col.models.by_name(NOTE_TYPE_NAME)
+    note = col.new_note(model)
+    note[FRONT_FIELD] = "hello"
+    note[BACK_FIELD] = "world"
+    col.add_note(note, col.decks.selected())
+
+    saved = col.get_note(note.id)
+    assert saved[FRONT_FIELD] == "hello"
+    assert saved[BACK_FIELD] == "world"
