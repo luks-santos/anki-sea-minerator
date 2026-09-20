@@ -7,9 +7,25 @@ directory junction instead — it needs no admin rights (unlike a symlink) and,
 unlike a `sys.path` shim (see below), it makes Anki treat `src/seaminerator`
 itself as the add-on folder:
 
-```
+`mklink` is a `cmd.exe` builtin and `%APPDATA%` only expands under `cmd`, so
+run this from **Command Prompt**:
+
+```bat
 mklink /J "%APPDATA%\Anki2\addons21\seaminerator" "C:\Users\<you>\Documents\workspace\personal\anki-sea-minerator\src\seaminerator"
 ```
+
+From PowerShell, invoke it through `cmd` instead — `mklink` is not a
+PowerShell command and the bare form fails with
+`The term 'mklink' is not recognized`:
+
+```powershell
+cmd /c mklink /J "$env:APPDATA\Anki2\addons21\seaminerator" "C:\Users\<you>\Documents\workspace\personal\anki-sea-minerator\src\seaminerator"
+```
+
+Close Anki before creating the junction, and remove it (`rmdir` on the
+junction, which deletes the link, not the target) before installing a built
+`.ankiaddon` — `manifest.json` declares `"package": "seaminerator"`, so Anki
+would target the same folder name.
 
 This matters because `wizard.py` resolves the add-on's config with
 `mw.addonManager.getConfig(__name__.split(".")[0])`, which reads

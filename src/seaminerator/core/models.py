@@ -65,7 +65,10 @@ def parse_mining_response(data: dict) -> list[WordBlock]:
         raise ValueError("mining response must be an object with a 'words' key")
     try:
         return [_word_from_dict(w) for w in data["words"]]
-    except (KeyError, TypeError) as exc:
+    except (KeyError, TypeError, AttributeError) as exc:
+        # AttributeError covers a non-object entry in "words": the first thing
+        # _word_from_dict touches is data.get(...), so a bare string or number
+        # raises AttributeError rather than TypeError.
         raise ValueError(f"malformed mining response: {exc}") from exc
 
 

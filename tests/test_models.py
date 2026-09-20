@@ -140,3 +140,13 @@ def test_parse_imported_text_skips_block_with_extra_lines():
 def test_parse_imported_text_empty_input_returns_nothing():
     assert parse_imported_text("") == ([], [])
     assert parse_imported_text("   \n\n  ") == ([], [])
+
+
+def test_parse_mining_response_rejects_non_object_word_entry():
+    with pytest.raises(ValueError, match="malformed mining response"):
+        parse_mining_response({"words": ["give up"]})
+
+
+def test_parse_mining_response_rejects_numeric_word_entry():
+    with pytest.raises(ValueError, match="malformed mining response"):
+        parse_mining_response({"words": [5]})
