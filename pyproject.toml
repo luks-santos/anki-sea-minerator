@@ -30,9 +30,23 @@ testpaths = ["tests"]
 
 [tool.ruff]
 target-version = "py311"
+# Vendored third-party code (see src/seaminerator/_vendor/): it isn't ours,
+# wasn't written to this project's style, and is already linted upstream.
+extend-exclude = ["src/seaminerator/_vendor"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.mypy]
 python_version = "3.11"
+# Same reasoning as the ruff exclude above: don't type-check the vendored
+# copy of httpx and its dependencies.
+exclude = ["^src/seaminerator/_vendor/"]
+
+# `aqt` (Anki's Qt frontend) is deliberately not installed here, in CI, or
+# anywhere outside a real Anki install — it only exists at runtime inside
+# Anki's own bundled Python. Mirrors how this file ignored edge_tts/gtts/
+# questionary before Task 1 removed the CLI's TTS dependencies.
+[[tool.mypy.overrides]]
+module = ["aqt.*"]
+ignore_missing_imports = true
