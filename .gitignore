@@ -1,5 +1,7 @@
 # Superpowers working docs (local only, not committed)
 docs/superpowers/
+.superpowers/
+.claude/worktrees/
 
 # Python
 __pycache__/
