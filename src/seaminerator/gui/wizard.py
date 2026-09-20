@@ -93,10 +93,20 @@ class MineWizard(QDialog):
             showWarning("Choose a target deck.", parent=self)
             return
 
-        self._mine_button.setEnabled(False)
+        try:
+            connector = GeminiRestConnector(self._cfg.gemini_api_key, self._cfg.model)
+            prompt = load_prompt(self._cfg.prompt_path)
+        except Exception as exc:
+            showWarning(
+                f"Could not start mining: {exc}\n\n"
+                f"Check the prompt file configured at '{self._cfg.prompt_path}'.",
+                parent=self,
+                textFormat="plain",
+            )
+            return
+
         self._started_at = time.monotonic()
-        connector = GeminiRestConnector(self._cfg.gemini_api_key, self._cfg.model)
-        prompt = load_prompt(self._cfg.prompt_path)
+        self._mine_button.setEnabled(False)
 
         op = QueryOp(
             parent=self,
