@@ -48,6 +48,41 @@ def test_parse_rejects_missing_words_key():
         parse_mining_response({"nope": []})
 
 
+def test_parse_rejects_non_string_sentence_text():
+    payload = sample_payload()
+    payload["words"][0]["sentences"][0]["text"] = None
+    with pytest.raises(ValueError, match="text"):
+        parse_mining_response(payload)
+
+
+def test_parse_rejects_non_string_highlight():
+    payload = sample_payload()
+    payload["words"][0]["sentences"][0]["highlight"] = 5
+    with pytest.raises(ValueError, match="highlight"):
+        parse_mining_response(payload)
+
+
+def test_parse_rejects_non_string_expression():
+    payload = sample_payload()
+    payload["words"][0]["expression"] = None
+    with pytest.raises(ValueError, match="expression"):
+        parse_mining_response(payload)
+
+
+def test_parse_rejects_non_string_grammar_class():
+    payload = sample_payload()
+    payload["words"][0]["grammar_class"] = 42
+    with pytest.raises(ValueError, match="grammar_class"):
+        parse_mining_response(payload)
+
+
+def test_parse_rejects_non_string_translation_item():
+    payload = sample_payload()
+    payload["words"][0]["translations"] = ["Desistir", 7]
+    with pytest.raises(ValueError, match="translations"):
+        parse_mining_response(payload)
+
+
 def test_parse_imported_text_single_block_with_tag():
     cards, warnings = parse_imported_text(
         "[Grammar] We had a bad day.\nNós tivemos um dia ruim."

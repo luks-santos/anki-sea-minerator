@@ -26,20 +26,36 @@ class ImportedCard:
     back: str
 
 
+def _require_str(value: object, field_name: str) -> str:
+    # Dataclasses don't enforce their annotations, so a schema-violating
+    # model response (e.g. `"text": null`) would otherwise sail straight
+    # into a frozen Sentence/WordBlock and blow up much later, unguarded,
+    # in core.cards.highlight_html/build_back. Catching it here, at parse
+    # time, keeps every downstream consumer able to trust these fields.
+    if not isinstance(value, str):
+        raise ValueError(
+            f"expected a string for '{field_name}', got {type(value).__name__}"
+        )
+    return value
+
+
 def _sentence_from_dict(data: dict) -> Sentence:
     return Sentence(
-        text=data["text"],
-        highlight=data.get("highlight", ""),
+        text=_require_str(data["text"], "text"),
+        highlight=_require_str(data.get("highlight", ""), "highlight"),
         note=data.get("note", ""),
     )
 
 
 def _word_from_dict(data: dict) -> WordBlock:
+    translations = list(data.get("translations", []))
+    for translation in translations:
+        _require_str(translation, "translations")
     return WordBlock(
-        expression=data["expression"],
+        expression=_require_str(data["expression"], "expression"),
         explanation=data.get("explanation", ""),
-        translations=list(data.get("translations", [])),
-        grammar_class=data.get("grammar_class", ""),
+        translations=translations,
+        grammar_class=_require_str(data.get("grammar_class", ""), "grammar_class"),
         sentences=[_sentence_from_dict(s) for s in data.get("sentences", [])],
     )
 
