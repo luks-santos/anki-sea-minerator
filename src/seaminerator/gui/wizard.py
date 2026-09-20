@@ -19,8 +19,9 @@ from aqt.utils import showWarning
 
 from ..addon_config import config_from_dict
 from ..anki.collection_client import CollectionAnkiClient
-from ..anki.notetype import ensure_notetype
+from ..anki.notetype import NOTE_TYPE_NAME, ensure_notetype
 from ..core.ai.gemini_rest import GeminiError, GeminiRestConnector
+from ..core.models import WordBlock
 from ..core.prompt import load_prompt
 
 PAGE_INPUT = 0
@@ -29,15 +30,16 @@ PAGE_SUMMARY = 2
 
 
 class MineWizard(QDialog):
-    def __init__(self, parent) -> None:
+    def __init__(self, parent: QWidget) -> None:
         super().__init__(parent)
         self.setWindowTitle("Mine vocabulary")
         self.resize(720, 560)
 
-        self._cfg = config_from_dict(mw.addonManager.getConfig(__name__.split(".")[0]))
+        config = mw.addonManager.getConfig(__name__.split(".")[0]) or {}
+        self._cfg = config_from_dict(config)
         self._client = CollectionAnkiClient(mw.col)
-        self._blocks = []
-        self._selection = {}
+        self._blocks: list[WordBlock] = []
+        self._selection: dict[int, set[int]] = {}
         self._started_at = 0.0
 
         self._pages = QStackedWidget(self)
@@ -91,6 +93,7 @@ class MineWizard(QDialog):
             showWarning("Choose a target deck.", parent=self)
             return
 
+        self._mine_button.setEnabled(False)
         self._started_at = time.monotonic()
         connector = GeminiRestConnector(self._cfg.gemini_api_key, self._cfg.model)
         prompt = load_prompt(self._cfg.prompt_path)
@@ -106,18 +109,27 @@ class MineWizard(QDialog):
         ).run_in_background()
 
     def _on_mining_failed(self, exc: Exception) -> None:
+        self._mine_button.setEnabled(True)
         if isinstance(exc, GeminiError):
-            showWarning(str(exc), parent=self)
+            showWarning(str(exc), parent=self, textFormat="plain")
         else:
-            showWarning(f"Mining failed: {exc}", parent=self)
+            showWarning(f"Mining failed: {exc}", parent=self, textFormat="plain")
         self._pages.setCurrentIndex(PAGE_INPUT)
 
-    def _on_mined(self, blocks) -> None:
+    def _on_mined(self, blocks: list[WordBlock]) -> None:
+        self._mine_button.setEnabled(True)
         if not blocks:
             showWarning("The model returned no words.", parent=self)
             return
         self._blocks = blocks
-        ensure_notetype(mw.col, self._cfg.tts_lang)
+        try:
+            ensure_notetype(mw.col, self._cfg.tts_lang)
+        except Exception as exc:
+            showWarning(
+                f"Could not prepare the '{NOTE_TYPE_NAME}' note type: {exc}",
+                parent=self,
+            )
+            return
         self._show_review()
 
     def _show_review(self) -> None:
