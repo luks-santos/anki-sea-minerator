@@ -31,6 +31,12 @@ htmlcov/
 .env
 *.local.toml
 
+# Anki writes this into the add-on folder the first time config is saved
+# from Tools -> Add-ons -> Config. It's a generated per-install artifact,
+# not source. Only appears here for developers using the docs/development.md
+# directory-junction workflow, where src/seaminerator/ IS the add-on folder.
+src/seaminerator/meta.json
+
 # Local scratch files (manual testing, not part of the project)
 scratch_*.py
 
