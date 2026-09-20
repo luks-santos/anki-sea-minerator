@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html
 import time
 
 from aqt import mw
@@ -36,10 +37,6 @@ from ..core.session import (
     summarize,
 )
 
-PAGE_INPUT = 0
-PAGE_REVIEW = 1
-PAGE_SUMMARY = 2
-
 
 class MineWizard(QDialog):
     def __init__(self, parent: QWidget) -> None:
@@ -52,12 +49,14 @@ class MineWizard(QDialog):
         self._client = CollectionAnkiClient(mw.col)
         self._blocks: list[WordBlock] = []
         self._selection: dict[int, set[int]] = {}
+        self._checkboxes: dict[int, list[QCheckBox]] = {}
         self._results: list[CardResult] = []
         self._creating = False
         self._started_at = 0.0
 
         self._pages = QStackedWidget(self)
-        self._pages.addWidget(self._build_input_page())
+        self._input_page = self._build_input_page()
+        self._pages.addWidget(self._input_page)
 
         layout = QVBoxLayout(self)
         layout.addWidget(self._pages)
@@ -138,7 +137,7 @@ class MineWizard(QDialog):
             showWarning(str(exc), parent=self, textFormat="plain")
         else:
             showWarning(f"Mining failed: {exc}", parent=self, textFormat="plain")
-        self._pages.setCurrentIndex(PAGE_INPUT)
+        self._pages.setCurrentWidget(self._input_page)
 
     def _on_mined(self, blocks: list[WordBlock]) -> None:
         self._mine_button.setEnabled(True)
@@ -159,6 +158,7 @@ class MineWizard(QDialog):
 
     def _show_review(self) -> None:
         self._selection = default_selection(self._blocks)
+        self._checkboxes = {}
 
         page = QWidget(self)
         outer = QVBoxLayout(page)
@@ -185,7 +185,7 @@ class MineWizard(QDialog):
         outer.addLayout(footer)
 
         self._pages.addWidget(page)
-        self._pages.setCurrentIndex(PAGE_REVIEW)
+        self._pages.setCurrentWidget(page)
         self._refresh_count()
 
     def _build_block_widget(self, w_index: int, block: WordBlock) -> QWidget:
@@ -193,10 +193,31 @@ class MineWizard(QDialog):
         box.setFrameShape(QFrame.Shape.StyledPanel)
         layout = QVBoxLayout(box)
 
-        header = f"<b>{block.expression}</b> — {block.grammar_class}"
+        # Model-supplied text lands in a rich-text QLabel unescaped, a `<`
+        # would garble the label and QLabel will happily fetch an `<img
+        # src=...>` it finds in there -- escape everything except the
+        # sentence labels below, which are intentionally HTML produced by
+        # `highlight_html`.
+        header_text = (
+            f"<b>{html.escape(block.expression)}</b> — "
+            f"{html.escape(block.grammar_class)}"
+        )
         if block.translations:
-            header += f" · {', '.join(block.translations)}"
-        layout.addWidget(QLabel(header))
+            escaped_translations = ", ".join(html.escape(t) for t in block.translations)
+            header_text += f" · {escaped_translations}"
+
+        header_row = QHBoxLayout()
+        header_row.addWidget(QLabel(header_text), stretch=1)
+
+        if block.sentences:
+            all_button = QPushButton("All")
+            none_button = QPushButton("None")
+            all_button.clicked.connect(lambda: self._set_all(w_index, True))
+            none_button.clicked.connect(lambda: self._set_all(w_index, False))
+            header_row.addWidget(all_button)
+            header_row.addWidget(none_button)
+
+        layout.addLayout(header_row)
 
         if not block.sentences:
             empty = QLabel("no sentences returned for this word")
@@ -204,12 +225,19 @@ class MineWizard(QDialog):
             layout.addWidget(empty)
             return box
 
+        checkboxes: list[QCheckBox] = []
         for s_index, sentence in enumerate(block.sentences):
             checkbox = QCheckBox()
+            # `setChecked` must run before `.connect`: with the connection
+            # already wired up, this initial set would fire `_toggle` ->
+            # `_refresh_count` -> `self._count_label`, which does not exist
+            # yet at this point (it is only created once every block widget
+            # has been built), raising an AttributeError.
             checkbox.setChecked(s_index in self._selection.get(w_index, set()))
-            checkbox.stateChanged.connect(
-                lambda state, w=w_index, s=s_index: self._toggle(w, s, state)
+            checkbox.toggled.connect(
+                lambda checked, w=w_index, s=s_index: self._toggle(w, s, checked)
             )
+            checkboxes.append(checkbox)
 
             label = QLabel(
                 highlight_html(
@@ -223,14 +251,29 @@ class MineWizard(QDialog):
             row.addWidget(label, stretch=1)
             layout.addLayout(row)
 
+        self._checkboxes[w_index] = checkboxes
         return box
 
-    def _toggle(self, w_index: int, s_index: int, state) -> None:
+    def _toggle(self, w_index: int, s_index: int, checked: bool) -> None:
         chosen = self._selection.setdefault(w_index, set())
-        if state:
+        if checked:
             chosen.add(s_index)
         else:
             chosen.discard(s_index)
+        self._refresh_count()
+
+    def _set_all(self, w_index: int, checked: bool) -> None:
+        sentence_count = len(self._blocks[w_index].sentences)
+        self._selection[w_index] = set(range(sentence_count)) if checked else set()
+        # The selection above is already authoritative for this word, so the
+        # per-checkbox `setChecked` calls below must not re-enter `_toggle`
+        # (each would fire `toggled` and fight over the same set). Block
+        # each checkbox's signals for the duration of the visual update
+        # instead of letting the handlers run.
+        for checkbox in self._checkboxes.get(w_index, []):
+            checkbox.blockSignals(True)
+            checkbox.setChecked(checked)
+            checkbox.blockSignals(False)
         self._refresh_count()
 
     def _refresh_count(self) -> None:
@@ -293,4 +336,4 @@ class MineWizard(QDialog):
         layout.addWidget(close)
 
         self._pages.addWidget(page)
-        self._pages.setCurrentIndex(PAGE_SUMMARY)
+        self._pages.setCurrentWidget(page)
