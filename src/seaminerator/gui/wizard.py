@@ -21,11 +21,12 @@ from aqt.qt import (
 from aqt.utils import showWarning
 
 from ..addon_config import config_from_dict
+from ..anki.batch import create_batch
 from ..anki.collection_client import CollectionAnkiClient
 from ..anki.notetype import NOTE_TYPE_NAME, ensure_notetype
 from ..core.ai.gemini_rest import GeminiError, GeminiRestConnector
 from ..core.cards import highlight_html
-from ..core.flow import CardResult, create_cards_for_selection
+from ..core.flow import CardResult
 from ..core.models import WordBlock
 from ..core.prompt import load_prompt
 from ..core.session import (
@@ -52,6 +53,7 @@ class MineWizard(QDialog):
         self._blocks: list[WordBlock] = []
         self._selection: dict[int, set[int]] = {}
         self._results: list[CardResult] = []
+        self._creating = False
         self._started_at = 0.0
 
         self._pages = QStackedWidget(self)
@@ -150,6 +152,7 @@ class MineWizard(QDialog):
             showWarning(
                 f"Could not prepare the '{NOTE_TYPE_NAME}' note type: {exc}",
                 parent=self,
+                textFormat="plain",
             )
             return
         self._show_review()
@@ -233,7 +236,12 @@ class MineWizard(QDialog):
     def _refresh_count(self) -> None:
         total = count_selected(self._selection)
         self._count_label.setText(f"{total} sentence(s) selected")
-        self._create_button.setEnabled(total > 0)
+        # `_creating` guards against a checkbox toggled while a batch is in
+        # flight re-enabling Create: `_toggle` calls this method too, and
+        # without the guard `total > 0` alone would flip the button back on
+        # mid-operation, letting a second click launch a second CollectionOp
+        # over the same (or a since-mutated) selection.
+        self._create_button.setEnabled(total > 0 and not self._creating)
 
     def _create_cards(self) -> None:
         pairs = selected_sentences(self._blocks, self._selection)
@@ -243,33 +251,24 @@ class MineWizard(QDialog):
         deck = self._deck_box.currentText()
 
         def op(col):
-            # The custom undo entry MUST be opened before any note is added:
-            # merge_undo_entries(target) merges everything from target to the
-            # current step into one entry. Opening it after the loop (as the
-            # plan's spec sketch did) merges only that trailing empty entry
-            # with itself, leaving one "Add Note" undo step per card -- see
-            # tests/anki/test_undo_batch.py for the verification.
-            client = CollectionAnkiClient(col)
-            target = col.add_custom_undo_entry("Mine vocabulary")
-            results = []
-            for word, sentences in pairs:
-                results.extend(
-                    create_cards_for_selection(word, sentences, self._cfg, deck, client)
-                )
+            results, changes = create_batch(col, pairs, self._cfg, deck)
             self._results = results
-            return col.merge_undo_entries(target)
+            return changes
 
-        self._create_button.setEnabled(False)
+        self._creating = True
+        self._refresh_count()
         CollectionOp(parent=self, op=op).success(self._on_cards_created).failure(
             self._on_create_failed
         ).run_in_background()
 
     def _on_cards_created(self, _changes) -> None:
-        self._create_button.setEnabled(True)
+        self._creating = False
+        self._refresh_count()
         self._show_summary()
 
     def _on_create_failed(self, exc: Exception) -> None:
-        self._create_button.setEnabled(True)
+        self._creating = False
+        self._refresh_count()
         showWarning(f"Could not create cards: {exc}", parent=self, textFormat="plain")
 
     def _show_summary(self) -> None:
