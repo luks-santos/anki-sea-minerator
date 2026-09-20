@@ -110,3 +110,11 @@ def test_network_failure_raises_readable_error():
 
     with pytest.raises(GeminiError, match="[Cc]onnect"):
         make_connector(handler).mine(["give up"], prompt="RULES")
+
+
+def test_server_error_raises_readable_error():
+    def handler(request):
+        return httpx.Response(500, json={"error": {"message": "internal"}})
+
+    with pytest.raises(GeminiError, match="Gemini API error 500"):
+        make_connector(handler).mine(["give up"], prompt="RULES")
