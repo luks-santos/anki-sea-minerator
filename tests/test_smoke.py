@@ -1,6 +1,5 @@
-import minerator
+import seaminerator
 
 
-def test_package_exposes_version():
-    assert isinstance(minerator.__version__, str)
-    assert minerator.__version__
+def test_package_imports_without_anki_installed():
+    assert seaminerator.mw is None

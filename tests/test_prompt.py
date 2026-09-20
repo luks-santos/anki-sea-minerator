@@ -1,4 +1,4 @@
-from minerator.prompt import DEFAULT_PROMPT, load_prompt
+from seaminerator.core.prompt import DEFAULT_PROMPT, load_prompt
 
 
 def test_default_prompt_mentions_json_and_rules():

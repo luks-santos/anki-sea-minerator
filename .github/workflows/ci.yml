@@ -28,7 +28,7 @@ jobs:
           python-version: "3.11"
           cache: "pip"
       - run: pip install -e ".[dev]"
-      - run: mypy minerator
+      - run: mypy src
 
   test:
     runs-on: ubuntu-latest

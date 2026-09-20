@@ -7,30 +7,22 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
 ]
 dependencies = [
-    "typer>=0.12",
-    "rich>=13",
-    "questionary>=2",
-    "google-genai>=0.3",
-    "edge-tts>=6",
-    "gTTS>=2.5",
     "httpx>=0.27",
-    "platformdirs>=4",
-    "tomli-w>=1",
-    "playsound3>=3.3",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "ruff>=0.15", "mypy>=2.0"]
-
-[project.scripts]
-minerator = "minerator.cli:app"
+dev = ["pytest>=8", "ruff>=0.15", "mypy>=2.0", "anki>=25.2"]
 
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools]
+package-dir = {"" = "src"}
+
 [tool.setuptools.packages.find]
-include = ["minerator*"]
+where = ["src"]
+include = ["seaminerator*"]
 
 [tool.pytest.ini_options]
 addopts = "-q"
@@ -38,13 +30,23 @@ testpaths = ["tests"]
 
 [tool.ruff]
 target-version = "py311"
+# Vendored third-party code (see src/seaminerator/_vendor/): it isn't ours,
+# wasn't written to this project's style, and is already linted upstream.
+extend-exclude = ["src/seaminerator/_vendor"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.mypy]
 python_version = "3.11"
+# Same reasoning as the ruff exclude above: don't type-check the vendored
+# copy of httpx and its dependencies.
+exclude = ["^src/seaminerator/_vendor/"]
 
+# `aqt` (Anki's Qt frontend) is deliberately not installed here, in CI, or
+# anywhere outside a real Anki install — it only exists at runtime inside
+# Anki's own bundled Python. Mirrors how this file ignored edge_tts/gtts/
+# questionary before Task 1 removed the CLI's TTS dependencies.
 [[tool.mypy.overrides]]
-module = ["edge_tts.*", "gtts.*", "questionary.*", "playsound3.*"]
+module = ["aqt.*"]
 ignore_missing_imports = true

@@ -1,6 +1,6 @@
 import pytest
 
-from minerator.models import (
+from seaminerator.core.models import (
     ImportedCard,
     Sentence,
     WordBlock,
@@ -46,6 +46,41 @@ def test_parse_builds_word_blocks():
 def test_parse_rejects_missing_words_key():
     with pytest.raises(ValueError):
         parse_mining_response({"nope": []})
+
+
+def test_parse_rejects_non_string_sentence_text():
+    payload = sample_payload()
+    payload["words"][0]["sentences"][0]["text"] = None
+    with pytest.raises(ValueError, match="text"):
+        parse_mining_response(payload)
+
+
+def test_parse_rejects_non_string_highlight():
+    payload = sample_payload()
+    payload["words"][0]["sentences"][0]["highlight"] = 5
+    with pytest.raises(ValueError, match="highlight"):
+        parse_mining_response(payload)
+
+
+def test_parse_rejects_non_string_expression():
+    payload = sample_payload()
+    payload["words"][0]["expression"] = None
+    with pytest.raises(ValueError, match="expression"):
+        parse_mining_response(payload)
+
+
+def test_parse_rejects_non_string_grammar_class():
+    payload = sample_payload()
+    payload["words"][0]["grammar_class"] = 42
+    with pytest.raises(ValueError, match="grammar_class"):
+        parse_mining_response(payload)
+
+
+def test_parse_rejects_non_string_translation_item():
+    payload = sample_payload()
+    payload["words"][0]["translations"] = ["Desistir", 7]
+    with pytest.raises(ValueError, match="translations"):
+        parse_mining_response(payload)
 
 
 def test_parse_imported_text_single_block_with_tag():
@@ -105,3 +140,13 @@ def test_parse_imported_text_skips_block_with_extra_lines():
 def test_parse_imported_text_empty_input_returns_nothing():
     assert parse_imported_text("") == ([], [])
     assert parse_imported_text("   \n\n  ") == ([], [])
+
+
+def test_parse_mining_response_rejects_non_object_word_entry():
+    with pytest.raises(ValueError, match="malformed mining response"):
+        parse_mining_response({"words": ["give up"]})
+
+
+def test_parse_mining_response_rejects_numeric_word_entry():
+    with pytest.raises(ValueError, match="malformed mining response"):
+        parse_mining_response({"words": [5]})

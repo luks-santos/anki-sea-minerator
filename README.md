@@ -1,87 +1,126 @@
-# anki-sea-minerator
+# Sea Minerator
 
-A terminal application that automates mining English vocabulary into
-[Anki](https://apps.ankiweb.net/) flashcards, powered by AI.
+An [Anki](https://apps.ankiweb.net/) add-on that mines a list of English
+vocabulary into flashcards, powered by Google Gemini.
 
-## The idea
+## What it does
 
-Turn a daily list of English words/expressions into ready-to-study Anki cards,
-without the manual copy-paste-and-record workflow.
+You open `Tools → Mine vocabulary…` in Anki, paste a "list of the day" (one
+word or expression per line), and pick a target deck. Gemini returns
+structured data for each item — a short explanation, its grammar class,
+translations, and example sentences with the mined expression marked. You
+review the sentences and check off which ones should become cards. On
+confirmation, Sea Minerator creates one Anki note per selected sentence, all
+under a single undo step, and shows a summary of what was created.
 
-You paste a "list of the day" in the terminal. An AI connector (Gemini first,
-pluggable) returns structured data for each item — a short explanation, the
-grammar class, translations, and example sentences. You pick which sentences
-become cards. For each selected sentence the app builds an Anki note with the
-mined expression highlighted in color and generates the audio (TTS), then inserts
-it into a deck you choose — all through [AnkiConnect](https://ankiweb.net/shared/info/2055492159).
-
-This automates the repetitive manual work — looking words up in a dictionary or
-prompting a chat LLM, then copying sentences one by one into Anki and running
-AwesomeTTS by hand — while keeping you in control of what actually matters:
-reading each sentence's context and meaning, checking the grammar class, and
-choosing which ones become flashcards.
+Everything runs inside Anki's own process: there is no external server, no
+AnkiConnect, and no CLI. The add-on talks to Gemini directly over HTTPS and
+writes notes straight into your collection.
 
 ## How a card looks
 
-- **Front:** the English sentence, with the mined expression highlighted in color,
-  plus the generated audio.
-  Example: `The <span style="color:#2563eb">presence of the press</span> is huge. [sound:…mp3]`
-- **Back:** the expression, its translations, and grammar class.
-  Example: `Presence of the press: Presença da imprensa, Presença da mídia (Noun phrase)`
+Cards use their own note type, **Sea Minerator**, created automatically the
+first time you mine:
 
-## Planned workflow (`mine` command)
-
-1. Health check — Anki open with AnkiConnect, and AI key configured.
-2. Paste the list of the day in the terminal.
-3. Pick the target deck for the session.
-4. The AI returns structured results (explanation, translations, grammar class, sentences).
-5. Review each word and select which sentences to turn into cards.
-6. For each selected sentence: generate audio and create the Anki note.
-7. See a summary of what was created.
-
-## Key ideas
-
-- **Terminal-first**, guided interactive flow.
-- **Pluggable AI connector** — starts with Google Gemini.
-- **Pluggable TTS engine** — defaults to `edge-tts`, with `gTTS` as an alternative.
-- **Structured AI output (JSON)** — reliable parsing and exact highlighting, even
-  with inflections (`give up → gave up → giving up`).
-- **Reuses your existing Anki note type** with configurable field names.
-- **Configurable, optimizable prompt** — the default preserves the pedagogical
-  rules (Cambridge Dictionary, Reverso Context, DK EFE references).
-
-## Planned tech stack
-
-- **Python**
-- **Typer** (CLI) + **Rich** (output) + **questionary** (interactive selection)
-- **google-genai** (Gemini, structured JSON output)
-- **edge-tts** / **gTTS** (text-to-speech)
-- **httpx** (AnkiConnect HTTP API)
-
-## Requirements (planned)
-
-- Python 3.11+
-- Anki desktop with the AnkiConnect add-on running
-- A Google Gemini API key
+- **Front:** the example sentence, with the mined expression highlighted in
+  color, plus an inline `{{tts}}` tag that plays the sentence aloud.
+- **Back:** the expression, its translations, and its grammar class.
 
 ## Install
 
-```bash
-pip install -e ".[dev]"
-```
+1. Download `sea-minerator.ankiaddon` (see [Building from source](#building-from-source)
+   if you're building it yourself rather than getting a released copy).
+2. In Anki: `Tools → Add-ons → Install from file…`, pick the `.ankiaddon`
+   file, then restart Anki.
 
 ## Setup
 
-1. Install the AnkiConnect add-on (code `2055492159`) and keep Anki open.
-2. Get a free Gemini API key from Google AI Studio and export it:
-   `export GEMINI_API_KEY=...` (or set it in the config file).
+1. Get a free Gemini API key from [Google AI Studio](https://aistudio.google.com/).
+2. In Anki: `Tools → Add-ons`, select **Sea Minerator**, click **Config**, and
+   paste the key into `gemini_api_key`. Save.
+
+The config screen (Anki's built-in JSON editor) also lets you set:
+
+- `model` — the Gemini model id, e.g. `gemini-2.5-flash`.
+- `default_deck` — the deck pre-selected in the wizard.
+- `tts_lang` — the language passed to Anki's `{{tts}}` tag, e.g. `en_US`.
+  Changing it rewrites the note type's template, which affects existing cards.
+- `highlight_color` — the CSS color used for the studied expression.
+- `prompt_path` — a file overriding the built-in mining prompt, if you want to
+  customize how Gemini is instructed.
+
+See `src/seaminerator/config.md` for the full reference.
 
 ## Usage
 
+`Tools → Mine vocabulary…` opens the wizard:
+
+1. Paste your list and choose a deck, then click **Mine**.
+2. Review each word's sentences and check the ones you want as cards.
+3. Click **Create cards**. Anki creates them as one batch, undoable in one
+   step (`Edit → Undo`).
+4. The summary screen shows how many cards were created and any warnings
+   (for example, a sentence where the expression text couldn't be located to
+   highlight).
+
+## Audio: what `{{tts}}` can and can't do
+
+Sea Minerator does not generate or bundle any audio files. The front of each
+card contains Anki's native `{{tts}}` tag, which asks whatever is running
+Anki to speak the sentence using **the operating system's own
+text-to-speech voices** at review time. That has real consequences worth
+knowing before you rely on it:
+
+- **Requires Anki 2.1.20+ on desktop**, AnkiDroid 2.17+, or AnkiMobile
+  2.0.56+. Older clients will show the tag literally instead of speaking it.
+- **No support on plain Linux.** Desktop TTS depends on the OS having a
+  speech engine installed and configured (macOS and Windows ship one;
+  Anki's `{{tts}}` support does not extend to typical bare Linux setups
+  without extra configuration you'd have to do yourself).
+- **Voice quality and availability depend on what's installed on each
+  device.** The same card can sound different — or silent — on different
+  computers or phones, because it's playing through whatever local voices
+  exist there, not a bundled recording.
+- **Probably does not work on AnkiWeb.** AnkiWeb's browser-based reviewer
+  does not reliably support `{{tts}}`; treat cards as desktop/mobile-app
+  only if audio matters to you.
+
+If your study setup depends on hearing every card reliably in the browser or
+on Linux, this add-on's audio will disappoint you — highlighting, the mined
+content, and the note type still work regardless, but the sentence won't
+always be read aloud.
+
+## Building from source
+
+Only one runtime dependency, `httpx`, and its own transitive dependencies are
+used, and they are vendored into the repo (`src/seaminerator/_vendor/`)
+rather than installed at runtime — an `.ankiaddon` has no install step, so
+whatever the add-on imports has to ship inside the zip. `_vendor/` is
+committed on purpose for that reason; `dist/`, the built zip, is not (see
+`.gitignore`).
+
 ```bash
-minerator check          # verify Anki + API key
-minerator config show    # inspect configuration
-minerator mine           # interactive mining session
+bash scripts/vendor.sh   # (re)populate src/seaminerator/_vendor/
+bash scripts/build.sh    # produce dist/sea-minerator.ankiaddon
+```
+
+Only `httpx` and its transitive dependencies may be vendored, and only
+because they're pure Python — no package with C extensions belongs in
+`_vendor/`, since the add-on ships as one platform-independent zip. See the
+comments at the top of `scripts/vendor.sh` if you ever change the
+dependency.
+
+## Development
+
+See `docs/development.md` for running the add-on straight from this repo
+(without building a `.ankiaddon`) and for running the test suite.
+
+```bash
+pip install -e ".[dev]"
+pytest -q
+ruff check .
+ruff format --check .
+mypy src
 ```
 
 ## License
