@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 
-from minerator.models import WordBlock
+from .models import WordBlock
 
 
 def highlight_html(text: str, highlight: str, color: str) -> str:

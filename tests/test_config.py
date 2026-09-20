@@ -1,4 +1,4 @@
-from minerator.config import Config
+from seaminerator.core.config import Config
 
 
 def test_config_defaults():

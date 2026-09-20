@@ -1,11 +1,11 @@
-from minerator.config import Config
-from minerator.flow import (
+from seaminerator.core.config import Config
+from seaminerator.core.flow import (
     create_card,
     create_cards_for_selection,
     create_imported_card,
     create_imported_cards,
 )
-from minerator.models import ImportedCard, Sentence, WordBlock
+from seaminerator.core.models import ImportedCard, Sentence, WordBlock
 
 
 class FakeAnki:

@@ -17,8 +17,12 @@ dev = ["pytest>=8", "ruff>=0.15", "mypy>=2.0", "anki>=25.2"]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools]
+package-dir = {"" = "src"}
+
 [tool.setuptools.packages.find]
-include = ["minerator*"]
+where = ["src"]
+include = ["seaminerator*"]
 
 [tool.pytest.ini_options]
 addopts = "-q"

@@ -1,6 +1,6 @@
 import pytest
 
-from minerator.models import (
+from seaminerator.core.models import (
     ImportedCard,
     Sentence,
     WordBlock,

@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from minerator.cards import build_back, highlight_html
-from minerator.config import Config
-from minerator.models import ImportedCard, Sentence, WordBlock
+from .cards import build_back, highlight_html
+from .config import Config
+from .models import ImportedCard, Sentence, WordBlock
 
 NOTE_TYPE_NAME = "Sea Minerator"
 FRONT_FIELD = "Front"

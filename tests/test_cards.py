@@ -1,5 +1,5 @@
-from minerator.cards import build_back, highlight_html
-from minerator.models import WordBlock
+from seaminerator.core.cards import build_back, highlight_html
+from seaminerator.core.models import WordBlock
 
 
 def test_highlight_wraps_first_case_insensitive_occurrence():
