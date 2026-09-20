@@ -28,11 +28,16 @@ class CollectionAnkiClient:
             note[name] = value
         note.tags = list(tags or [])
 
+        # `duplicate_or_empty()` returns truthy for either a duplicate *or* an
+        # empty first field, so this exception fires for both cases even
+        # though its name only names one of them.
         if note.duplicate_or_empty():
             raise DuplicateNoteError(
                 "a note with this front already exists, or the front is empty"
             )
 
+        # `col.decks.id(deck)` looks up the deck by name but also *creates*
+        # it if no deck with that name exists yet -- this is not a pure read.
         deck_id = self._col.decks.id(deck)
         self._col.add_note(note, deck_id)
         return note.id

@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-APP_NAME = "anki-sea-minerator"
-
 
 @dataclass
 class Config:
