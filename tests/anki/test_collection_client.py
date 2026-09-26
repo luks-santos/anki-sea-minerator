@@ -20,6 +20,21 @@ def test_deck_names_includes_the_default_deck(client):
     assert "Default" in client.deck_names()
 
 
+def test_tag_names_is_empty_for_a_new_collection(client):
+    assert client.tag_names() == []
+
+
+def test_tag_names_lists_tags_used_by_notes(client):
+    client.add_note(
+        deck="English",
+        model=NOTE_TYPE_NAME,
+        fields={"Front": "a", "Back": "b"},
+        tags=["noun", "past-simple"],
+    )
+
+    assert set(client.tag_names()) == {"noun", "past-simple"}
+
+
 def test_add_note_creates_a_real_note_and_returns_its_id(client, col):
     note_id = client.add_note(
         deck="English",

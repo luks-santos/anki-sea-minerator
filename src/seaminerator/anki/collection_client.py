@@ -12,6 +12,9 @@ class CollectionAnkiClient:
     def deck_names(self) -> list[str]:
         return [d.name for d in self._col.decks.all_names_and_ids()]
 
+    def tag_names(self) -> list[str]:
+        return list(self._col.tags.all())
+
     def add_note(
         self,
         deck: str,
