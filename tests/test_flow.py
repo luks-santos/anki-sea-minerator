@@ -29,7 +29,7 @@ def make_word():
         expression="give up",
         explanation="",
         translations=["Desistir"],
-        grammar_class="Phrasal Verb",
+        class_tag="phrasal-verb",
         sentences=[],
     )
 
@@ -48,7 +48,7 @@ def test_create_card_adds_note_with_highlight_and_no_audio():
     assert note["tags"] == ["anki-sea-minerator"]
     assert '<span style="color:#2563eb">give up</span>' in note["fields"]["Front"]
     assert "[sound:" not in note["fields"]["Front"]
-    assert note["fields"]["Back"] == "Give up: Desistir (Phrasal Verb)"
+    assert note["fields"]["Back"] == "Give up: Desistir (Phrasal verb)"
 
 
 def test_create_card_warns_when_highlight_missing():

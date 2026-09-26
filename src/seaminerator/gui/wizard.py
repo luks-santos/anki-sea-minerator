@@ -200,7 +200,7 @@ class MineWizard(QDialog):
         # `highlight_html`.
         header_text = (
             f"<b>{html.escape(block.expression)}</b> — "
-            f"{html.escape(block.grammar_class)}"
+            f"{html.escape(block.class_tag)}"
         )
         if block.translations:
             escaped_translations = ", ".join(html.escape(t) for t in block.translations)

@@ -3,12 +3,15 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from .tags import RESERVED_TAGS, normalize_tag
+
 
 @dataclass(frozen=True)
 class Sentence:
     text: str
     highlight: str
     note: str = ""
+    topics: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -16,7 +19,7 @@ class WordBlock:
     expression: str
     explanation: str
     translations: list[str]
-    grammar_class: str
+    class_tag: str
     sentences: list[Sentence] = field(default_factory=list)
 
 
@@ -39,11 +42,34 @@ def _require_str(value: object, field_name: str) -> str:
     return value
 
 
+def _class_tag_from(value: object) -> str:
+    tag = normalize_tag(_require_str(value, "class_tag"))
+    if not tag:
+        raise ValueError("'class_tag' is empty after normalization")
+    return tag
+
+
+def _topics_from(value: object) -> list[str]:
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        raise ValueError(
+            f"expected a list for 'topics', got {type(value).__name__}"
+        )
+    topics: list[str] = []
+    for item in value:
+        topic = normalize_tag(_require_str(item, "topics"))
+        if topic and topic not in RESERVED_TAGS and topic not in topics:
+            topics.append(topic)
+    return topics
+
+
 def _sentence_from_dict(data: dict) -> Sentence:
     return Sentence(
         text=_require_str(data["text"], "text"),
         highlight=_require_str(data.get("highlight", ""), "highlight"),
         note=data.get("note", ""),
+        topics=_topics_from(data.get("topics")),
     )
 
 
@@ -55,7 +81,7 @@ def _word_from_dict(data: dict) -> WordBlock:
         expression=_require_str(data["expression"], "expression"),
         explanation=data.get("explanation", ""),
         translations=translations,
-        grammar_class=_require_str(data.get("grammar_class", ""), "grammar_class"),
+        class_tag=_class_tag_from(data.get("class_tag")),
         sentences=[_sentence_from_dict(s) for s in data.get("sentences", [])],
     )
 

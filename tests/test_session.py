@@ -14,7 +14,7 @@ def make_block(expression, n_sentences):
         expression=expression,
         explanation="",
         translations=["x"],
-        grammar_class="Noun",
+        class_tag="noun",
         sentences=[
             Sentence(text=f"{expression} {i}.", highlight=expression)
             for i in range(n_sentences)

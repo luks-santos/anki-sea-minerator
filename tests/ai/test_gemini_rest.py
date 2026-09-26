@@ -11,7 +11,7 @@ PAYLOAD = {
             "expression": "give up",
             "explanation": "stop trying",
             "translations": ["Desistir"],
-            "grammar_class": "Phrasal Verb",
+            "class_tag": "phrasal-verb",
             "sentences": [{"text": "Never give up.", "highlight": "give up"}],
         }
     ]

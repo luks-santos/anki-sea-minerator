@@ -79,7 +79,7 @@ def test_create_card_end_to_end_against_a_real_collection(client, col):
         expression="give up",
         explanation="",
         translations=["Desistir"],
-        grammar_class="Phrasal Verb",
+        class_tag="phrasal-verb",
         sentences=[],
     )
     sentence = Sentence(text="Never give up.", highlight="give up")
@@ -89,4 +89,4 @@ def test_create_card_end_to_end_against_a_real_collection(client, col):
     assert result.created is True
     note = col.get_note(result.note_id)
     assert '<span style="color:#2563eb">give up</span>' in note["Front"]
-    assert note["Back"] == "Give up: Desistir (Phrasal Verb)"
+    assert note["Back"] == "Give up: Desistir (Phrasal verb)"

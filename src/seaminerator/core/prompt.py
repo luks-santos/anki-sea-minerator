@@ -28,7 +28,7 @@ Respond ONLY with JSON (no markdown fences) matching this schema:
       "expression": "give up",
       "explanation": "...",
       "translations": ["Desistir", "Parar"],
-      "grammar_class": "Phrasal Verb",
+      "class_tag": "phrasal-verb",
       "sentences": [
         {
           "text": "Never give up on dreams.",
