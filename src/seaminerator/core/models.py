@@ -53,9 +53,7 @@ def _topics_from(value: object) -> list[str]:
     if value is None:
         return []
     if not isinstance(value, list):
-        raise ValueError(
-            f"expected a list for 'topics', got {type(value).__name__}"
-        )
+        raise ValueError(f"expected a list for 'topics', got {type(value).__name__}")
     topics: list[str] = []
     for item in value:
         topic = normalize_tag(_require_str(item, "topics"))

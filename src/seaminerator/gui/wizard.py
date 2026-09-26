@@ -31,11 +31,13 @@ from ..core.flow import CardResult
 from ..core.models import WordBlock
 from ..core.prompt import load_prompt
 from ..core.session import (
+    apply_class_overrides,
     count_selected,
     default_selection,
     selected_sentences,
     summarize,
 )
+from ..core.tags import CLASS_TAGS, topic_vocabulary
 
 
 class MineWizard(QDialog):
@@ -50,6 +52,7 @@ class MineWizard(QDialog):
         self._blocks: list[WordBlock] = []
         self._selection: dict[int, set[int]] = {}
         self._checkboxes: dict[int, list[QCheckBox]] = {}
+        self._class_overrides: dict[int, str] = {}
         self._results: list[CardResult] = []
         self._creating = False
         self._started_at = 0.0
@@ -109,6 +112,7 @@ class MineWizard(QDialog):
         try:
             connector = GeminiRestConnector(self._cfg.gemini_api_key, self._cfg.model)
             prompt = load_prompt(self._cfg.prompt_path)
+            topics = topic_vocabulary(self._client.tag_names())
         except Exception as exc:
             showWarning(
                 f"Could not start mining: {exc}\n\n"
@@ -123,7 +127,7 @@ class MineWizard(QDialog):
 
         op = QueryOp(
             parent=self,
-            op=lambda _col: connector.mine(words, prompt),
+            op=lambda _col: connector.mine(words, prompt, topics),
             success=self._on_mined,
         )
         op.failure(self._on_mining_failed)
@@ -159,6 +163,7 @@ class MineWizard(QDialog):
     def _show_review(self) -> None:
         self._selection = default_selection(self._blocks)
         self._checkboxes = {}
+        self._class_overrides = {}
 
         page = QWidget(self)
         outer = QVBoxLayout(page)
@@ -198,16 +203,28 @@ class MineWizard(QDialog):
         # src=...>` it finds in there -- escape everything except the
         # sentence labels below, which are intentionally HTML produced by
         # `highlight_html`.
-        header_text = (
-            f"<b>{html.escape(block.expression)}</b> — "
-            f"{html.escape(block.class_tag)}"
-        )
-        if block.translations:
-            escaped_translations = ", ".join(html.escape(t) for t in block.translations)
-            header_text += f" · {escaped_translations}"
-
         header_row = QHBoxLayout()
-        header_row.addWidget(QLabel(header_text), stretch=1)
+        header_row.addWidget(QLabel(f"<b>{html.escape(block.expression)}</b> —"))
+
+        class_box = QComboBox()
+        class_box.setEditable(True)
+        class_box.addItems(CLASS_TAGS)
+        if block.class_tag not in CLASS_TAGS:
+            class_box.addItem(block.class_tag)
+        class_box.setCurrentText(block.class_tag)
+        # Raw text is stored as-is; `apply_class_overrides` normalizes it and
+        # falls back to the model's class when it is blank.
+        class_box.currentTextChanged.connect(
+            lambda text, w=w_index: self._class_overrides.__setitem__(w, text)
+        )
+        header_row.addWidget(class_box)
+
+        translations_text = ""
+        if block.translations:
+            translations_text = "· " + ", ".join(
+                html.escape(t) for t in block.translations
+            )
+        header_row.addWidget(QLabel(translations_text), stretch=1)
 
         if block.sentences:
             all_button = QPushButton("All")
@@ -239,11 +256,13 @@ class MineWizard(QDialog):
             )
             checkboxes.append(checkbox)
 
-            label = QLabel(
-                highlight_html(
-                    sentence.text, sentence.highlight, self._cfg.highlight_color
-                )
+            label_html = highlight_html(
+                sentence.text, sentence.highlight, self._cfg.highlight_color
             )
+            if sentence.topics:
+                topics_text = html.escape(", ".join(sentence.topics))
+                label_html += f' <span style="color:gray">· {topics_text}</span>'
+            label = QLabel(label_html)
             label.setWordWrap(True)
 
             row = QHBoxLayout()
@@ -287,7 +306,8 @@ class MineWizard(QDialog):
         self._create_button.setEnabled(total > 0 and not self._creating)
 
     def _create_cards(self) -> None:
-        pairs = selected_sentences(self._blocks, self._selection)
+        blocks = apply_class_overrides(self._blocks, self._class_overrides)
+        pairs = selected_sentences(blocks, self._selection)
         if not pairs:
             return
 

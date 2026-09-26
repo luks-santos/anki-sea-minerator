@@ -7,8 +7,9 @@ vocabulary into flashcards, powered by Google Gemini.
 
 You open `Tools → Mine vocabulary…` in Anki, paste a "list of the day" (one
 word or expression per line), and pick a target deck. Gemini returns
-structured data for each item — a short explanation, its grammar class,
-translations, and example sentences with the mined expression marked. You
+structured data for each item — a short explanation, a grammar class tag,
+translations, and example sentences with the mined expression marked and
+their grammar topic tags. You
 review the sentences and check off which ones should become cards. On
 confirmation, Sea Minerator creates one Anki note per selected sentence, all
 under a single undo step, and shows a summary of what was created.
@@ -24,7 +25,13 @@ first time you mine:
 
 - **Front:** the example sentence, with the mined expression highlighted in
   color, plus an inline `{{tts}}` tag that plays the sentence aloud.
-- **Back:** the expression, its translations, and its grammar class.
+- **Back:** the expression, its translations, and its grammar class (e.g.
+  "Phrasal verb").
+- **Tags:** `anki-sea-minerator`, one grammar class (`noun`, `verb`,
+  `phrasal-verb`, `idiom`, `expression`…) and the grammar topics the sentence
+  exercises (`past-simple`, `present-perfect`…). Topics reuse the tags that
+  already exist in your collection; a new one is created only when none fits.
+  The class can be changed per word in the review screen.
 
 ## Install
 
