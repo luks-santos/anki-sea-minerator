@@ -1,13 +1,60 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 
 import httpx
 
 from ..models import WordBlock, parse_mining_response
+from ..prompt import tagging_instructions
+from ..tags import CLASS_TAGS
 
 BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 TIMEOUT = 120.0
+
+_STRING = {"type": "STRING"}
+
+# Gemini's `responseSchema` (OpenAPI subset, uppercase types). The `enum` on
+# `class_tag` is what keeps the model from inventing near-duplicate classes
+# like "noun-phrase"; topics stay free-form strings, normalized on parse.
+RESPONSE_SCHEMA = {
+    "type": "OBJECT",
+    "properties": {
+        "words": {
+            "type": "ARRAY",
+            "items": {
+                "type": "OBJECT",
+                "properties": {
+                    "expression": _STRING,
+                    "explanation": _STRING,
+                    "translations": {"type": "ARRAY", "items": _STRING},
+                    "class_tag": {"type": "STRING", "enum": list(CLASS_TAGS)},
+                    "sentences": {
+                        "type": "ARRAY",
+                        "items": {
+                            "type": "OBJECT",
+                            "properties": {
+                                "text": _STRING,
+                                "highlight": _STRING,
+                                "note": _STRING,
+                                "topics": {"type": "ARRAY", "items": _STRING},
+                            },
+                            "required": ["text", "highlight", "topics"],
+                        },
+                    },
+                },
+                "required": [
+                    "expression",
+                    "explanation",
+                    "translations",
+                    "class_tag",
+                    "sentences",
+                ],
+            },
+        }
+    },
+    "required": ["words"],
+}
 
 
 class GeminiError(Exception):
@@ -20,11 +67,19 @@ class GeminiRestConnector:
         self._model = model
         self._client = httpx.Client(transport=transport, timeout=TIMEOUT)
 
-    def mine(self, words: list[str], prompt: str) -> list[WordBlock]:
-        contents = f"{prompt}\n\nList of the day:\n" + "\n".join(words)
+    def mine(
+        self, words: list[str], prompt: str, topics: Sequence[str] = ()
+    ) -> list[WordBlock]:
+        contents = (
+            f"{prompt}\n\n{tagging_instructions(list(topics))}\n\nList of the day:\n"
+            + "\n".join(words)
+        )
         body = {
             "contents": [{"parts": [{"text": contents}]}],
-            "generationConfig": {"responseMimeType": "application/json"},
+            "generationConfig": {
+                "responseMimeType": "application/json",
+                "responseSchema": RESPONSE_SCHEMA,
+            },
         }
         url = f"{BASE_URL}/{self._model}:generateContent"
 

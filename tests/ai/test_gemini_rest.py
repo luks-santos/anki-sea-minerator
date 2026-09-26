@@ -4,6 +4,8 @@ import httpx
 import pytest
 
 from seaminerator.core.ai.gemini_rest import GeminiError, GeminiRestConnector
+from seaminerator.core.prompt import tagging_instructions
+from seaminerator.core.tags import CLASS_TAGS
 
 PAYLOAD = {
     "words": [
@@ -48,18 +50,61 @@ def test_mine_parses_response_into_word_blocks():
     assert captured["url"].endswith("/v1beta/models/gemini-2.5-flash:generateContent")
 
 
-def test_mine_sends_prompt_word_list_and_json_mime_type():
+def test_mine_sends_prompt_tagging_rules_word_list_and_json_mime_type():
     captured = {}
 
     def handler(request):
         captured.update(json.loads(request.content))
         return ok(PAYLOAD)
 
-    make_connector(handler).mine(["give up", "overwhelming"], prompt="RULES")
+    make_connector(handler).mine(
+        ["give up", "overwhelming"], prompt="RULES", topics=["past-simple"]
+    )
 
     text = captured["contents"][0]["parts"][0]["text"]
-    assert text == "RULES\n\nList of the day:\ngive up\noverwhelming"
+    assert text == (
+        "RULES\n\n"
+        + tagging_instructions(["past-simple"])
+        + "\n\nList of the day:\ngive up\noverwhelming"
+    )
     assert captured["generationConfig"]["responseMimeType"] == "application/json"
+
+
+def test_mine_without_topics_says_there_are_none():
+    captured = {}
+
+    def handler(request):
+        captured.update(json.loads(request.content))
+        return ok(PAYLOAD)
+
+    make_connector(handler).mine(["give up"], prompt="RULES")
+
+    text = captured["contents"][0]["parts"][0]["text"]
+    assert "There are no existing topic tags yet." in text
+
+
+def test_mine_constrains_class_tag_with_a_response_schema():
+    captured = {}
+
+    def handler(request):
+        captured.update(json.loads(request.content))
+        return ok(PAYLOAD)
+
+    make_connector(handler).mine(["give up"], prompt="RULES")
+
+    schema = captured["generationConfig"]["responseSchema"]
+    word = schema["properties"]["words"]["items"]
+    assert word["properties"]["class_tag"] == {
+        "type": "STRING",
+        "enum": list(CLASS_TAGS),
+    }
+    assert "class_tag" in word["required"]
+    sentence = word["properties"]["sentences"]["items"]
+    assert sentence["properties"]["topics"] == {
+        "type": "ARRAY",
+        "items": {"type": "STRING"},
+    }
+    assert "topics" in sentence["required"]
 
 
 def test_invalid_key_raises_readable_error():
