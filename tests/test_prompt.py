@@ -52,3 +52,9 @@ def test_tagging_instructions_include_the_classification_rules():
     assert "phrasal-verb" in text
     assert "figurative" in text
     assert "kebab-case" in text
+
+
+def test_tagging_instructions_tie_topics_to_the_highlighted_expression():
+    text = tagging_instructions([])
+    assert "expression itself carries in that sentence" in text
+    assert "questions, negation" in text

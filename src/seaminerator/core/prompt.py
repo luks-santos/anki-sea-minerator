@@ -66,10 +66,14 @@ Tagging rules:
 - expression: a fixed conversational chunk with a mostly literal meaning, a
   discourse marker, slang, or a fragment that fits no single class
   ("no wonder", "sort of", "thumbs up", "as far as I know").
-- Give every sentence "topics": the grammar structures that sentence
-  exercises (tenses, verb-to-be, have-got, conditionals, modals...). Use an
-  empty list when it exercises none; never force a topic. Never use a class
-  tag as a topic.
+- Give every sentence "topics": the grammar structures the highlighted
+  expression itself carries in that sentence (its tense or form, e.g.
+  present-perfect for "have been", verb-to-be, have-got, modals,
+  conditionals). Ignore the tense of the other words in the sentence, and
+  never tag themes, meanings or sentence types (questions, negation,
+  exclamation, cause-and-effect). Use an empty list when the expression
+  carries no grammar structure, which is the case for most nouns, adjectives,
+  idioms and fixed expressions. Never use a class tag as a topic.
 - {existing}
 - Reuse an existing topic's exact spelling when the concept matches. Only when
   none fits, create a new topic tag in English kebab-case (e.g.
