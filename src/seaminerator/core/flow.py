@@ -5,11 +5,11 @@ from dataclasses import dataclass
 from .cards import build_back, highlight_html
 from .config import Config
 from .models import ImportedCard, Sentence, WordBlock
+from .tags import ORIGIN_TAG, card_tags
 
 NOTE_TYPE_NAME = "Sea Minerator"
 FRONT_FIELD = "Front"
 BACK_FIELD = "Back"
-CARD_TAG = "anki-sea-minerator"
 
 
 @dataclass
@@ -21,10 +21,18 @@ class CardResult:
     warning: str | None = None
 
 
-def _add(expression: str, front: str, back: str, deck: str, anki, warnings: list[str]):
+def _add(
+    expression: str,
+    front: str,
+    back: str,
+    tags: list[str],
+    deck: str,
+    anki,
+    warnings: list[str],
+):
     fields = {FRONT_FIELD: front, BACK_FIELD: back}
     try:
-        note_id = anki.add_note(deck, NOTE_TYPE_NAME, fields, tags=[CARD_TAG])
+        note_id = anki.add_note(deck, NOTE_TYPE_NAME, fields, tags=tags)
     except Exception as exc:
         warnings.append(f"card not created: {exc}")
         return CardResult(
@@ -50,7 +58,8 @@ def create_card(
     front = highlight_html(sentence.text, sentence.highlight, cfg.highlight_color)
     if sentence.highlight and front == sentence.text:
         warnings.append(f"highlight '{sentence.highlight}' not found in sentence")
-    return _add(word.expression, front, build_back(word), deck, anki, warnings)
+    tags = card_tags(word.class_tag, sentence.topics)
+    return _add(word.expression, front, build_back(word), tags, deck, anki, warnings)
 
 
 def create_cards_for_selection(
@@ -62,7 +71,7 @@ def create_cards_for_selection(
 def create_imported_card(
     card: ImportedCard, cfg: Config, deck: str, anki
 ) -> CardResult:
-    return _add(card.front, card.front, card.back, deck, anki, [])
+    return _add(card.front, card.front, card.back, [ORIGIN_TAG], deck, anki, [])
 
 
 def create_imported_cards(

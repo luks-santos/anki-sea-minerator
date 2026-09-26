@@ -45,10 +45,42 @@ def test_create_card_adds_note_with_highlight_and_no_audio():
     assert result.warning is None
     note = anki.notes[0]
     assert note["deck"] == "English"
-    assert note["tags"] == ["anki-sea-minerator"]
+    assert note["tags"] == ["anki-sea-minerator", "phrasal-verb"]
     assert '<span style="color:#2563eb">give up</span>' in note["fields"]["Front"]
     assert "[sound:" not in note["fields"]["Front"]
     assert note["fields"]["Back"] == "Give up: Desistir (Phrasal verb)"
+
+
+def test_create_card_adds_the_sentence_topics_as_tags():
+    anki = FakeAnki()
+    sentence = Sentence(
+        text="He has given up.", highlight="given up", topics=["present-perfect"]
+    )
+
+    create_card(make_word(), sentence, Config(), "English", anki)
+
+    assert anki.notes[0]["tags"] == [
+        "anki-sea-minerator",
+        "phrasal-verb",
+        "present-perfect",
+    ]
+
+
+def test_create_cards_for_selection_tags_each_card_with_its_own_topics():
+    anki = FakeAnki()
+    selected = [
+        Sentence(text="He gave up.", highlight="gave up", topics=["past-simple"]),
+        Sentence(text="Never give up.", highlight="give up"),
+    ]
+
+    create_cards_for_selection(make_word(), selected, Config(), "English", anki)
+
+    assert anki.notes[0]["tags"] == [
+        "anki-sea-minerator",
+        "phrasal-verb",
+        "past-simple",
+    ]
+    assert anki.notes[1]["tags"] == ["anki-sea-minerator", "phrasal-verb"]
 
 
 def test_create_card_warns_when_highlight_missing():
@@ -100,6 +132,7 @@ def test_create_imported_card_keeps_bracket_tag_on_front():
     note = anki.notes[0]
     assert note["fields"]["Front"] == "[Grammar] We had a bad day."
     assert note["fields"]["Back"] == "Nós tivemos um dia ruim."
+    assert note["tags"] == ["anki-sea-minerator"]
 
 
 def test_create_imported_cards_maps_over_list():

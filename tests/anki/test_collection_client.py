@@ -90,3 +90,27 @@ def test_create_card_end_to_end_against_a_real_collection(client, col):
     note = col.get_note(result.note_id)
     assert '<span style="color:#2563eb">give up</span>' in note["Front"]
     assert note["Back"] == "Give up: Desistir (Phrasal verb)"
+
+
+def test_create_card_registers_new_topic_tags_in_the_collection(client, col):
+    word = WordBlock(
+        expression="give up",
+        explanation="",
+        translations=["Desistir"],
+        class_tag="phrasal-verb",
+        sentences=[],
+    )
+    sentence = Sentence(
+        text="He has given up.", highlight="given up", topics=["present-perfect"]
+    )
+
+    result = create_card(word, sentence, Config(), "English", client)
+
+    note = col.get_note(result.note_id)
+    # Anki may reorder tags when it saves a note, so compare as sets.
+    assert set(note.tags) == {
+        "anki-sea-minerator",
+        "phrasal-verb",
+        "present-perfect",
+    }
+    assert "present-perfect" in col.tags.all()
