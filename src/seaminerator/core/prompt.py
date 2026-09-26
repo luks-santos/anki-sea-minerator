@@ -51,7 +51,8 @@ Respond ONLY with JSON (no markdown fences) matching this schema:
 """
 
 
-_TAGGING_RULES = """Tagging rules:
+_TAGGING_RULES = """\
+Tagging rules:
 - Give every word exactly one "class_tag" from this list: {classes}.
 - Classify by how the expression functions in your sentences. When it could be
   several classes, pick the one the sentences use.
