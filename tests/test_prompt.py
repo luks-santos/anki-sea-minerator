@@ -64,3 +64,8 @@ def test_tagging_instructions_ask_for_one_topic_per_structure_family():
     text = tagging_instructions([])
     assert "modal-verbs" in text
     assert "modal-verb-will" in text
+
+
+def test_tagging_instructions_leave_topics_empty_for_a_noun_next_to_a_verb():
+    text = tagging_instructions([])
+    assert "The stepladder is in the garage" in text

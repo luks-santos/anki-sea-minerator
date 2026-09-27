@@ -73,7 +73,9 @@ Tagging rules:
   never tag themes, meanings or sentence types (questions, negation,
   exclamation, cause-and-effect). Use an empty list when the expression
   carries no grammar structure, which is the case for most nouns, adjectives,
-  idioms and fixed expressions. Never use a class tag as a topic.
+  idioms and fixed expressions. A verb elsewhere in the sentence does not
+  count: for "stepladder" in "The stepladder is in the garage.", topics is []
+  (the "is" is not the studied expression). Never use a class tag as a topic.
 - {existing}
 - A topic names the structure family, never the specific word: modal-verbs
   (never modal-verb-will or modal-verb-would), conditionals (never
