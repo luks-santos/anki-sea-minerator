@@ -47,10 +47,3 @@ def topic_vocabulary(all_tags: list[str]) -> list[str]:
 def class_label(tag: str) -> str:
     return tag.replace("-", " ").capitalize()
 
-
-def card_tags(class_tag: str, topics: list[str]) -> list[str]:
-    tags = [ORIGIN_TAG, class_tag]
-    for topic in topics:
-        if topic and topic not in RESERVED_TAGS and topic not in tags:
-            tags.append(topic)
-    return tags

@@ -107,7 +107,7 @@ def test_create_card_end_to_end_against_a_real_collection(client, col):
     assert note["Back"] == "Give up: Desistir (Phrasal verb)"
 
 
-def test_create_card_registers_new_topic_tags_in_the_collection(client, col):
+def test_create_card_tags_only_the_origin_in_a_real_collection(client, col):
     word = WordBlock(
         expression="give up",
         explanation="",
@@ -122,10 +122,6 @@ def test_create_card_registers_new_topic_tags_in_the_collection(client, col):
     result = create_card(word, sentence, Config(), "English", client)
 
     note = col.get_note(result.note_id)
-    # Anki may reorder tags when it saves a note, so compare as sets.
-    assert set(note.tags) == {
-        "anki-sea-minerator",
-        "phrasal-verb",
-        "present-perfect",
-    }
-    assert "present-perfect" in col.tags.all()
+    assert note.tags == ["anki-sea-minerator"]
+    assert note["Back"] == "Give up: Desistir (Phrasal verb · present-perfect)"
+    assert col.tags.all() == ["anki-sea-minerator"]

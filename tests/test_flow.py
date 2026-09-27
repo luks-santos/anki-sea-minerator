@@ -45,13 +45,13 @@ def test_create_card_adds_note_with_highlight_and_no_audio():
     assert result.warning is None
     note = anki.notes[0]
     assert note["deck"] == "English"
-    assert note["tags"] == ["anki-sea-minerator", "phrasal-verb"]
+    assert note["tags"] == ["anki-sea-minerator"]
     assert '<span style="color:#2563eb">give up</span>' in note["fields"]["Front"]
     assert "[sound:" not in note["fields"]["Front"]
     assert note["fields"]["Back"] == "Give up: Desistir (Phrasal verb)"
 
 
-def test_create_card_adds_the_sentence_topics_as_tags():
+def test_create_card_puts_the_sentence_topics_on_the_back_not_in_tags():
     anki = FakeAnki()
     sentence = Sentence(
         text="He has given up.", highlight="given up", topics=["present-perfect"]
@@ -59,14 +59,14 @@ def test_create_card_adds_the_sentence_topics_as_tags():
 
     create_card(make_word(), sentence, Config(), "English", anki)
 
-    assert anki.notes[0]["tags"] == [
-        "anki-sea-minerator",
-        "phrasal-verb",
-        "present-perfect",
-    ]
+    note = anki.notes[0]
+    assert note["tags"] == ["anki-sea-minerator"]
+    assert note["fields"]["Back"] == (
+        "Give up: Desistir (Phrasal verb · present-perfect)"
+    )
 
 
-def test_create_cards_for_selection_tags_each_card_with_its_own_topics():
+def test_create_cards_for_selection_gives_each_card_its_own_topics():
     anki = FakeAnki()
     selected = [
         Sentence(text="He gave up.", highlight="gave up", topics=["past-simple"]),
@@ -75,12 +75,11 @@ def test_create_cards_for_selection_tags_each_card_with_its_own_topics():
 
     create_cards_for_selection(make_word(), selected, Config(), "English", anki)
 
-    assert anki.notes[0]["tags"] == [
-        "anki-sea-minerator",
-        "phrasal-verb",
-        "past-simple",
+    backs = [note["fields"]["Back"] for note in anki.notes]
+    assert backs == [
+        "Give up: Desistir (Phrasal verb · past-simple)",
+        "Give up: Desistir (Phrasal verb)",
     ]
-    assert anki.notes[1]["tags"] == ["anki-sea-minerator", "phrasal-verb"]
 
 
 def test_create_card_warns_when_highlight_missing():

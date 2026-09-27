@@ -33,6 +33,22 @@ def test_build_back_formats_expression_translations_class():
     assert build_back(word) == "Give up: Desistir, Parar (Phrasal verb)"
 
 
+def test_build_back_appends_topics_after_the_class():
+    word = WordBlock(
+        expression="have been",
+        explanation="",
+        translations=["Tenho sido"],
+        class_tag="verb",
+        sentences=[],
+    )
+    assert build_back(word, ["present-perfect"]) == (
+        "Have been: Tenho sido (Verb · present-perfect)"
+    )
+    assert build_back(word, ["past-simple", "verb-to-be"]) == (
+        "Have been: Tenho sido (Verb · past-simple, verb-to-be)"
+    )
+
+
 def test_build_back_preserves_internal_capitals():
     word = WordBlock(
         expression="NASA",

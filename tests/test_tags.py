@@ -2,7 +2,6 @@ from seaminerator.core.tags import (
     CLASS_TAGS,
     ORIGIN_TAG,
     RESERVED_TAGS,
-    card_tags,
     class_label,
     normalize_tag,
     topic_vocabulary,
@@ -73,21 +72,3 @@ def test_topic_vocabulary_of_empty_collection_is_empty():
 def test_class_label_is_readable():
     assert class_label("phrasal-verb") == "Phrasal verb"
     assert class_label("noun") == "Noun"
-
-
-def test_card_tags_puts_origin_then_class_then_topics():
-    assert card_tags("verb", ["past-simple", "verb-to-be"]) == [
-        "anki-sea-minerator",
-        "verb",
-        "past-simple",
-        "verb-to-be",
-    ]
-
-
-def test_card_tags_removes_duplicates_empty_and_reserved_topics():
-    tags = card_tags("verb", ["verb", "past-simple", "", "past-simple", "leech"])
-    assert tags == ["anki-sea-minerator", "verb", "past-simple"]
-
-
-def test_card_tags_with_no_topics():
-    assert card_tags("noun", []) == ["anki-sea-minerator", "noun"]
