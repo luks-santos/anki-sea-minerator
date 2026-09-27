@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 
 from .models import WordBlock
+from .tags import class_label
 
 
 def highlight_html(text: str, highlight: str, color: str) -> str:
@@ -16,8 +17,11 @@ def highlight_html(text: str, highlight: str, color: str) -> str:
     return text[:start] + span + text[end:]
 
 
-def build_back(word: WordBlock) -> str:
+def build_back(word: WordBlock, topics: list[str] | None = None) -> str:
     translations = ", ".join(word.translations)
     expression = word.expression
     capitalized = expression[:1].upper() + expression[1:] if expression else expression
-    return f"{capitalized}: {translations} ({word.grammar_class})"
+    grammar = class_label(word.class_tag)
+    if topics:
+        grammar += " · " + ", ".join(topics)
+    return f"{capitalized}: {translations} ({grammar})"

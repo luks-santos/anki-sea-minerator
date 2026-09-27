@@ -1,6 +1,7 @@
 from seaminerator.core.flow import CardResult
 from seaminerator.core.models import Sentence, WordBlock
 from seaminerator.core.session import (
+    apply_class_overrides,
     count_selected,
     default_selection,
     format_elapsed,
@@ -14,7 +15,7 @@ def make_block(expression, n_sentences):
         expression=expression,
         explanation="",
         translations=["x"],
-        grammar_class="Noun",
+        class_tag="noun",
         sentences=[
             Sentence(text=f"{expression} {i}.", highlight=expression)
             for i in range(n_sentences)
@@ -82,3 +83,30 @@ def test_summarize_handles_empty_results():
     assert summary.created == 0
     assert summary.failed == 0
     assert summary.warnings == []
+
+
+def test_apply_class_overrides_without_overrides_returns_same_blocks():
+    blocks = [make_block("give up", 1)]
+    assert apply_class_overrides(blocks, {}) == blocks
+
+
+def test_apply_class_overrides_replaces_the_class_of_the_chosen_word():
+    blocks = [make_block("give up", 1), make_block("whale", 1)]
+
+    result = apply_class_overrides(blocks, {0: "phrasal-verb"})
+
+    assert result[0].class_tag == "phrasal-verb"
+    assert result[0].sentences == blocks[0].sentences
+    assert result[1].class_tag == "noun"
+
+
+def test_apply_class_overrides_normalizes_typed_text():
+    blocks = [make_block("must", 1)]
+    assert apply_class_overrides(blocks, {0: " Modal Verb "})[0].class_tag == (
+        "modal-verb"
+    )
+
+
+def test_apply_class_overrides_falls_back_when_text_is_blank():
+    blocks = [make_block("whale", 1)]
+    assert apply_class_overrides(blocks, {0: "   "})[0].class_tag == "noun"

@@ -20,6 +20,21 @@ def test_deck_names_includes_the_default_deck(client):
     assert "Default" in client.deck_names()
 
 
+def test_tag_names_is_empty_for_a_new_collection(client):
+    assert client.tag_names() == []
+
+
+def test_tag_names_lists_tags_used_by_notes(client):
+    client.add_note(
+        deck="English",
+        model=NOTE_TYPE_NAME,
+        fields={"Front": "a", "Back": "b"},
+        tags=["noun", "past-simple"],
+    )
+
+    assert set(client.tag_names()) == {"noun", "past-simple"}
+
+
 def test_add_note_creates_a_real_note_and_returns_its_id(client, col):
     note_id = client.add_note(
         deck="English",
@@ -79,7 +94,7 @@ def test_create_card_end_to_end_against_a_real_collection(client, col):
         expression="give up",
         explanation="",
         translations=["Desistir"],
-        grammar_class="Phrasal Verb",
+        class_tag="phrasal-verb",
         sentences=[],
     )
     sentence = Sentence(text="Never give up.", highlight="give up")
@@ -89,4 +104,24 @@ def test_create_card_end_to_end_against_a_real_collection(client, col):
     assert result.created is True
     note = col.get_note(result.note_id)
     assert '<span style="color:#2563eb">give up</span>' in note["Front"]
-    assert note["Back"] == "Give up: Desistir (Phrasal Verb)"
+    assert note["Back"] == "Give up: Desistir (Phrasal verb)"
+
+
+def test_create_card_tags_only_the_origin_in_a_real_collection(client, col):
+    word = WordBlock(
+        expression="give up",
+        explanation="",
+        translations=["Desistir"],
+        class_tag="phrasal-verb",
+        sentences=[],
+    )
+    sentence = Sentence(
+        text="He has given up.", highlight="given up", topics=["present-perfect"]
+    )
+
+    result = create_card(word, sentence, Config(), "English", client)
+
+    note = col.get_note(result.note_id)
+    assert note.tags == ["anki-sea-minerator"]
+    assert note["Back"] == "Give up: Desistir (Phrasal verb · present-perfect)"
+    assert col.tags.all() == ["anki-sea-minerator"]

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from .flow import CardResult
 from .models import Sentence, WordBlock
+from .tags import normalize_tag
 
 
 @dataclass(frozen=True)
@@ -32,6 +33,18 @@ def selected_sentences(
             continue
         pairs.append((block, [block.sentences[j] for j in indices]))
     return pairs
+
+
+def apply_class_overrides(
+    blocks: list[WordBlock], overrides: dict[int, str]
+) -> list[WordBlock]:
+    result: list[WordBlock] = []
+    for i, block in enumerate(blocks):
+        tag = normalize_tag(overrides.get(i, ""))
+        if tag and tag != block.class_tag:
+            block = replace(block, class_tag=tag)
+        result.append(block)
+    return result
 
 
 def format_elapsed(seconds: float) -> str:

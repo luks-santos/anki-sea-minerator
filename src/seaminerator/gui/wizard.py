@@ -31,11 +31,22 @@ from ..core.flow import CardResult
 from ..core.models import WordBlock
 from ..core.prompt import load_prompt
 from ..core.session import (
+    apply_class_overrides,
     count_selected,
     default_selection,
     selected_sentences,
     summarize,
 )
+from ..core.tags import CLASS_TAGS, topic_vocabulary
+
+
+class _NoWheelComboBox(QComboBox):
+    # The review screen is a scroll area with one class combo per word. A
+    # stock QComboBox eats wheel events even without focus (the default on
+    # Windows and Linux styles), so scrolling past a combo would silently
+    # change that word's class. Ignoring the event hands it to the scroll area.
+    def wheelEvent(self, event) -> None:
+        event.ignore()
 
 
 class MineWizard(QDialog):
@@ -50,6 +61,7 @@ class MineWizard(QDialog):
         self._blocks: list[WordBlock] = []
         self._selection: dict[int, set[int]] = {}
         self._checkboxes: dict[int, list[QCheckBox]] = {}
+        self._class_overrides: dict[int, str] = {}
         self._results: list[CardResult] = []
         self._creating = False
         self._started_at = 0.0
@@ -118,12 +130,20 @@ class MineWizard(QDialog):
             )
             return
 
+        # The collection's tags only refine the topic names Gemini is offered;
+        # if they can't be read, mining still works with the base topics.
+        try:
+            collection_tags = self._client.tag_names()
+        except Exception:
+            collection_tags = []
+        topics = topic_vocabulary(collection_tags)
+
         self._started_at = time.monotonic()
         self._mine_button.setEnabled(False)
 
         op = QueryOp(
             parent=self,
-            op=lambda _col: connector.mine(words, prompt),
+            op=lambda _col: connector.mine(words, prompt, topics),
             success=self._on_mined,
         )
         op.failure(self._on_mining_failed)
@@ -159,6 +179,7 @@ class MineWizard(QDialog):
     def _show_review(self) -> None:
         self._selection = default_selection(self._blocks)
         self._checkboxes = {}
+        self._class_overrides = {}
 
         page = QWidget(self)
         outer = QVBoxLayout(page)
@@ -198,16 +219,30 @@ class MineWizard(QDialog):
         # src=...>` it finds in there -- escape everything except the
         # sentence labels below, which are intentionally HTML produced by
         # `highlight_html`.
-        header_text = (
-            f"<b>{html.escape(block.expression)}</b> — "
-            f"{html.escape(block.grammar_class)}"
-        )
-        if block.translations:
-            escaped_translations = ", ".join(html.escape(t) for t in block.translations)
-            header_text += f" · {escaped_translations}"
-
         header_row = QHBoxLayout()
-        header_row.addWidget(QLabel(header_text), stretch=1)
+        header_row.addWidget(QLabel(f"<b>{html.escape(block.expression)}</b> —"))
+
+        class_box = _NoWheelComboBox()
+        class_box.setEditable(True)
+        class_box.addItems(CLASS_TAGS)
+        if block.class_tag not in CLASS_TAGS:
+            class_box.addItem(block.class_tag)
+        # `setCurrentText` on an editable combo only sets the edit text and
+        # leaves the index on the first item; select the item itself.
+        class_box.setCurrentIndex(class_box.findText(block.class_tag))
+        # Raw text is stored as-is; `apply_class_overrides` normalizes it and
+        # falls back to the model's class when it is blank.
+        class_box.currentTextChanged.connect(
+            lambda text, w=w_index: self._class_overrides.__setitem__(w, text)
+        )
+        header_row.addWidget(class_box)
+
+        translations_text = ""
+        if block.translations:
+            translations_text = "· " + ", ".join(
+                html.escape(t) for t in block.translations
+            )
+        header_row.addWidget(QLabel(translations_text), stretch=1)
 
         if block.sentences:
             all_button = QPushButton("All")
@@ -218,6 +253,13 @@ class MineWizard(QDialog):
             header_row.addWidget(none_button)
 
         layout.addLayout(header_row)
+
+        if block.explanation:
+            explanation = QLabel(
+                f'<span style="color:gray">{html.escape(block.explanation)}</span>'
+            )
+            explanation.setWordWrap(True)
+            layout.addWidget(explanation)
 
         if not block.sentences:
             empty = QLabel("no sentences returned for this word")
@@ -239,11 +281,16 @@ class MineWizard(QDialog):
             )
             checkboxes.append(checkbox)
 
-            label = QLabel(
-                highlight_html(
-                    sentence.text, sentence.highlight, self._cfg.highlight_color
-                )
+            label_html = highlight_html(
+                sentence.text, sentence.highlight, self._cfg.highlight_color
             )
+            details = [sentence.note] if sentence.note else []
+            if sentence.topics:
+                details.append(", ".join(sentence.topics))
+            if details:
+                details_text = html.escape(" · ".join(details))
+                label_html += f' <span style="color:gray">· {details_text}</span>'
+            label = QLabel(label_html)
             label.setWordWrap(True)
 
             row = QHBoxLayout()
@@ -287,7 +334,8 @@ class MineWizard(QDialog):
         self._create_button.setEnabled(total > 0 and not self._creating)
 
     def _create_cards(self) -> None:
-        pairs = selected_sentences(self._blocks, self._selection)
+        blocks = apply_class_overrides(self._blocks, self._class_overrides)
+        pairs = selected_sentences(blocks, self._selection)
         if not pairs:
             return
 

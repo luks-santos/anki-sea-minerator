@@ -38,7 +38,7 @@ def make_pair(expression: str, sentence_texts: list[str]):
         expression=expression,
         explanation="",
         translations=["x"],
-        grammar_class="Noun",
+        class_tag="noun",
         sentences=[],
     )
     sentences = [Sentence(text=text, highlight=expression) for text in sentence_texts]

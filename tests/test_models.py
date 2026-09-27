@@ -16,14 +16,18 @@ def sample_payload():
                 "expression": "give up",
                 "explanation": "To stop trying.",
                 "translations": ["Desistir", "Parar"],
-                "grammar_class": "Phrasal Verb",
+                "class_tag": "phrasal-verb",
                 "sentences": [
                     {
                         "text": "Never give up.",
                         "highlight": "give up",
                         "note": "imperative",
                     },
-                    {"text": "He gave up.", "highlight": "gave up"},
+                    {
+                        "text": "He gave up.",
+                        "highlight": "gave up",
+                        "topics": ["past-simple"],
+                    },
                 ],
             }
         ]
@@ -41,6 +45,9 @@ def test_parse_builds_word_blocks():
         text="Never give up.", highlight="give up", note="imperative"
     )
     assert w.sentences[1].note == ""  # note defaults to empty
+    assert w.class_tag == "phrasal-verb"
+    assert w.sentences[1].topics == ["past-simple"]
+    assert w.sentences[0].topics == []
 
 
 def test_parse_rejects_missing_words_key():
@@ -69,10 +76,63 @@ def test_parse_rejects_non_string_expression():
         parse_mining_response(payload)
 
 
-def test_parse_rejects_non_string_grammar_class():
+def test_parse_rejects_non_string_class_tag():
     payload = sample_payload()
-    payload["words"][0]["grammar_class"] = 42
-    with pytest.raises(ValueError, match="grammar_class"):
+    payload["words"][0]["class_tag"] = 42
+    with pytest.raises(ValueError, match="class_tag"):
+        parse_mining_response(payload)
+
+
+def test_parse_rejects_missing_class_tag():
+    payload = sample_payload()
+    del payload["words"][0]["class_tag"]
+    with pytest.raises(ValueError, match="class_tag"):
+        parse_mining_response(payload)
+
+
+def test_parse_rejects_class_tag_that_normalizes_to_empty():
+    payload = sample_payload()
+    payload["words"][0]["class_tag"] = " !! "
+    with pytest.raises(ValueError, match="class_tag"):
+        parse_mining_response(payload)
+
+
+def test_parse_normalizes_class_tag():
+    payload = sample_payload()
+    payload["words"][0]["class_tag"] = "Phrasal Verb"
+    assert parse_mining_response(payload)[0].class_tag == "phrasal-verb"
+
+
+def test_parse_normalizes_topics():
+    payload = sample_payload()
+    payload["words"][0]["sentences"][0]["topics"] = ["Present Perfect", "Verb_To_Be"]
+    sentence = parse_mining_response(payload)[0].sentences[0]
+    assert sentence.topics == ["present-perfect", "verb-to-be"]
+
+
+def test_parse_drops_empty_reserved_and_duplicate_topics():
+    payload = sample_payload()
+    payload["words"][0]["sentences"][0]["topics"] = [
+        "past-simple",
+        "!!",
+        "Leech",
+        "Past Simple",
+    ]
+    sentence = parse_mining_response(payload)[0].sentences[0]
+    assert sentence.topics == ["past-simple"]
+
+
+def test_parse_rejects_non_list_topics():
+    payload = sample_payload()
+    payload["words"][0]["sentences"][0]["topics"] = "past-simple"
+    with pytest.raises(ValueError, match="topics"):
+        parse_mining_response(payload)
+
+
+def test_parse_rejects_non_string_topic_item():
+    payload = sample_payload()
+    payload["words"][0]["sentences"][0]["topics"] = ["past-simple", 3]
+    with pytest.raises(ValueError, match="topics"):
         parse_mining_response(payload)
 
 
@@ -150,3 +210,32 @@ def test_parse_mining_response_rejects_non_object_word_entry():
 def test_parse_mining_response_rejects_numeric_word_entry():
     with pytest.raises(ValueError, match="malformed mining response"):
         parse_mining_response({"words": [5]})
+
+
+def test_parse_drops_topics_that_are_class_tags():
+    payload = sample_payload()
+    payload["words"][0]["sentences"][0]["topics"] = ["noun", "past-simple", "Idiom"]
+    sentence = parse_mining_response(payload)[0].sentences[0]
+    assert sentence.topics == ["past-simple"]
+
+
+def test_parse_reuses_the_existing_spelling_of_a_topic():
+    payload = sample_payload()
+    payload["words"][0]["sentences"][0]["topics"] = ["verb-to-be", "gramatica"]
+    words = parse_mining_response(payload, vocabulary=["Verb_To_Be", "gramática"])
+    sentence = words[0].sentences[0]
+    assert sentence.topics == ["Verb_To_Be", "gramática"]
+
+
+def test_parse_rejects_non_string_note():
+    payload = sample_payload()
+    payload["words"][0]["sentences"][0]["note"] = 7
+    with pytest.raises(ValueError, match="note"):
+        parse_mining_response(payload)
+
+
+def test_parse_rejects_non_string_explanation():
+    payload = sample_payload()
+    payload["words"][0]["explanation"] = ["a", "b"]
+    with pytest.raises(ValueError, match="explanation"):
+        parse_mining_response(payload)

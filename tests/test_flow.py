@@ -29,7 +29,7 @@ def make_word():
         expression="give up",
         explanation="",
         translations=["Desistir"],
-        grammar_class="Phrasal Verb",
+        class_tag="phrasal-verb",
         sentences=[],
     )
 
@@ -48,7 +48,38 @@ def test_create_card_adds_note_with_highlight_and_no_audio():
     assert note["tags"] == ["anki-sea-minerator"]
     assert '<span style="color:#2563eb">give up</span>' in note["fields"]["Front"]
     assert "[sound:" not in note["fields"]["Front"]
-    assert note["fields"]["Back"] == "Give up: Desistir (Phrasal Verb)"
+    assert note["fields"]["Back"] == "Give up: Desistir (Phrasal verb)"
+
+
+def test_create_card_puts_the_sentence_topics_on_the_back_not_in_tags():
+    anki = FakeAnki()
+    sentence = Sentence(
+        text="He has given up.", highlight="given up", topics=["present-perfect"]
+    )
+
+    create_card(make_word(), sentence, Config(), "English", anki)
+
+    note = anki.notes[0]
+    assert note["tags"] == ["anki-sea-minerator"]
+    assert note["fields"]["Back"] == (
+        "Give up: Desistir (Phrasal verb · present-perfect)"
+    )
+
+
+def test_create_cards_for_selection_gives_each_card_its_own_topics():
+    anki = FakeAnki()
+    selected = [
+        Sentence(text="He gave up.", highlight="gave up", topics=["past-simple"]),
+        Sentence(text="Never give up.", highlight="give up"),
+    ]
+
+    create_cards_for_selection(make_word(), selected, Config(), "English", anki)
+
+    backs = [note["fields"]["Back"] for note in anki.notes]
+    assert backs == [
+        "Give up: Desistir (Phrasal verb · past-simple)",
+        "Give up: Desistir (Phrasal verb)",
+    ]
 
 
 def test_create_card_warns_when_highlight_missing():
@@ -100,6 +131,7 @@ def test_create_imported_card_keeps_bracket_tag_on_front():
     note = anki.notes[0]
     assert note["fields"]["Front"] == "[Grammar] We had a bad day."
     assert note["fields"]["Back"] == "Nós tivemos um dia ruim."
+    assert note["tags"] == ["anki-sea-minerator"]
 
 
 def test_create_imported_cards_maps_over_list():
