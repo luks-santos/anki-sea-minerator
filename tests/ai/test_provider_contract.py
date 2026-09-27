@@ -7,6 +7,7 @@ import pytest
 
 from seaminerator.core.ai.base import AIError, MiningRequest
 from seaminerator.core.ai.gemini import GeminiProvider
+from seaminerator.core.ai.openai_compat import OpenAICompatProvider
 from seaminerator.core.ai.schema import mining_schema
 
 PAYLOAD = {
@@ -85,7 +86,39 @@ def gemini_case() -> ProviderCase:
     )
 
 
-CASES = [gemini_case()]
+def openai_case() -> ProviderCase:
+    def completion(content, finish_reason="stop"):
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "message": {"role": "assistant", "content": content},
+                        "finish_reason": finish_reason,
+                    }
+                ]
+            },
+        )
+
+    return ProviderCase(
+        id="openai",
+        build=lambda transport: OpenAICompatProvider(
+            name="OpenAI",
+            api_key="secret",
+            model="gpt-test",
+            base_url="https://api.openai.com/v1",
+            transport=transport,
+        ),
+        ok=lambda payload: completion(json.dumps(payload)),
+        truncated=lambda: completion('{"words": [', finish_reason="length"),
+        models=lambda: httpx.Response(
+            200, json={"data": [{"id": "gpt-a"}, {"id": "gpt-b"}]}
+        ),
+        expected_models=["gpt-a", "gpt-b"],
+    )
+
+
+CASES = [gemini_case(), openai_case()]
 
 
 @pytest.fixture(params=CASES, ids=lambda case: case.id)
