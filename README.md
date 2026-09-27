@@ -53,7 +53,9 @@ first time you mine:
      don't (DeepSeek's API, for instance, only offers plain JSON mode).
    - **Anthropic**: a key from the [Anthropic Console](https://console.anthropic.com/).
    - **Local**: run [Ollama](https://ollama.com/) or LM Studio; no key needed.
-     Pick a model that supports structured output.
+     The base URL defaults to Ollama (`http://localhost:11434/v1`); for LM
+     Studio use `http://localhost:1234/v1`. Pick a model that supports
+     structured output.
 3. Paste the key, click **Load models**, choose a model, and **Test connection**.
 4. **Save**.
 

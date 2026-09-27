@@ -5,6 +5,7 @@ import json
 from aqt import mw
 from aqt.operations import QueryOp
 from aqt.qt import (
+    QApplication,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -14,6 +15,7 @@ from aqt.qt import (
     QLineEdit,
     QPlainTextEdit,
     QPushButton,
+    Qt,
     QVBoxLayout,
     QWidget,
 )
@@ -24,7 +26,15 @@ from ..anki.collection_client import CollectionAnkiClient
 from ..core.ai.base import AIError
 from ..core.ai.registry import build_provider
 from ..core.config import PROVIDERS, Config, ConfigError, ProviderSettings
-from ..core.settings import form_to_config, settings_from_form, validate, visible_fields
+from ..core.settings import (
+    form_to_config,
+    mask_keys,
+    model_choices,
+    settings_from_form,
+    unmask_keys,
+    validate,
+    visible_fields,
+)
 
 ADDON = __name__.split(".")[0]
 
@@ -37,8 +47,12 @@ def _load_config() -> Config:
 
 
 def open_settings(parent: QWidget | None = None) -> bool:
-    dialog = SettingsDialog(parent or mw)
-    return bool(dialog.exec())
+    # From the Add-ons dialog there is no explicit parent; the active window
+    # (that dialog) keeps the settings on top of it instead of behind.
+    dialog = SettingsDialog(parent or QApplication.activeWindow() or mw)
+    saved = bool(dialog.exec())
+    dialog.deleteLater()
+    return saved
 
 
 class SettingsDialog(QDialog):
@@ -48,6 +62,7 @@ class SettingsDialog(QDialog):
         self.resize(560, 0)
 
         self._cfg = _load_config()
+        self._closed = False
         # Edits to every provider's block live here until Save, so switching
         # the dropdown back and forth never loses a typed key.
         self._blocks: dict[str, ProviderSettings] = dict(self._cfg.providers)
@@ -85,17 +100,20 @@ class SettingsDialog(QDialog):
         model_row = QHBoxLayout()
         self._model_box = QComboBox()
         self._model_box.setEditable(True)
-        load_models = QPushButton("Load models")
-        load_models.clicked.connect(lambda: self._fetch_models(fill=True))
+        self._load_button = QPushButton("Load models")
+        self._load_button.clicked.connect(lambda: self._fetch_models(fill=True))
         model_row.addWidget(self._model_box, stretch=1)
-        model_row.addWidget(load_models)
+        model_row.addWidget(self._load_button)
         form.addRow("Model:", model_row)
 
         test_row = QHBoxLayout()
-        test_button = QPushButton("Test connection")
-        test_button.clicked.connect(lambda: self._fetch_models(fill=False))
+        self._test_button = QPushButton("Test connection")
+        self._test_button.clicked.connect(lambda: self._fetch_models(fill=False))
+        # Error bodies can be long or HTML; wrap them and never render markup.
         self._status = QLabel("")
-        test_row.addWidget(test_button)
+        self._status.setWordWrap(True)
+        self._status.setTextFormat(Qt.TextFormat.PlainText)
+        test_row.addWidget(self._test_button)
         test_row.addWidget(self._status, stretch=1)
         form.addRow("", test_row)
 
@@ -126,6 +144,12 @@ class SettingsDialog(QDialog):
         self._provider_box.setCurrentIndex(self._provider_box.findData(self._current))
         self._show_block(self._current)
         self._provider_box.currentIndexChanged.connect(self._on_provider_changed)
+
+    def done(self, result: int) -> None:
+        # A Load models / Test connection op may still be running when the
+        # dialog closes; its callbacks check this and touch no widget.
+        self._closed = True
+        super().done(result)
 
     def _show_block(self, provider_id: str) -> None:
         settings = self._blocks[provider_id]
@@ -173,22 +197,42 @@ class SettingsDialog(QDialog):
             return
 
         self._status.setText("Connecting…")
+        self._set_fetching(True)
+        provider_id = self._current
+
+        def finished() -> bool:
+            # False when the result no longer applies: the dialog closed, or
+            # the user switched provider while the request was running.
+            if self._closed:
+                return False
+            self._set_fetching(False)
+            return self._current == provider_id
 
         def on_success(models: list[str]) -> None:
-            self._status.setText(f"✓ Connected — {len(models)} models available")
+            if not finished():
+                return
+            choices = model_choices(models)
+            self._status.setText(f"✓ Connected — {len(choices)} models available")
             if fill:
                 current = self._model_box.currentText()
                 self._model_box.clear()
-                self._model_box.addItems(models)
+                self._model_box.addItems(choices)
                 self._model_box.setCurrentText(current)
 
         def on_failure(exc: Exception) -> None:
+            if not finished():
+                return
             message = str(exc) if isinstance(exc, AIError) else f"failed: {exc}"
             self._status.setText(f"✗ {message}")
 
         QueryOp(
             parent=self, op=lambda _col: provider.list_models(), success=on_success
         ).failure(on_failure).without_collection().run_in_background()
+
+    def _set_fetching(self, fetching: bool) -> None:
+        # One request at a time: repeated clicks would start concurrent ops.
+        self._load_button.setEnabled(not fetching)
+        self._test_button.setEnabled(not fetching)
 
     def _save(self) -> None:
         cfg = self._form_config()
@@ -231,7 +275,11 @@ class _JsonEditor(QDialog):
         self.setWindowTitle("Sea Minerator — advanced config")
         self.resize(560, 480)
         self.result_config = Config()
-        self._text = QPlainTextEdit(json.dumps(data, indent=2, ensure_ascii=False))
+        # Stored keys are shown masked; a mask left as-is keeps the key.
+        self._original = data
+        self._text = QPlainTextEdit(
+            json.dumps(mask_keys(data), indent=2, ensure_ascii=False)
+        )
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
@@ -243,7 +291,10 @@ class _JsonEditor(QDialog):
 
     def _accept(self) -> None:
         try:
-            self.result_config = config_from_dict(json.loads(self._text.toPlainText()))
+            edited = json.loads(self._text.toPlainText())
+            if not isinstance(edited, dict):
+                raise ValueError("the config must be a JSON object")
+            self.result_config = config_from_dict(unmask_keys(edited, self._original))
         except (ValueError, ConfigError) as exc:
             showWarning(f"Invalid config: {exc}", parent=self, textFormat="plain")
             return
