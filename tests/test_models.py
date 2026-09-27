@@ -225,3 +225,17 @@ def test_parse_reuses_the_existing_spelling_of_a_topic():
     words = parse_mining_response(payload, vocabulary=["Verb_To_Be", "gramática"])
     sentence = words[0].sentences[0]
     assert sentence.topics == ["Verb_To_Be", "gramática"]
+
+
+def test_parse_rejects_non_string_note():
+    payload = sample_payload()
+    payload["words"][0]["sentences"][0]["note"] = 7
+    with pytest.raises(ValueError, match="note"):
+        parse_mining_response(payload)
+
+
+def test_parse_rejects_non_string_explanation():
+    payload = sample_payload()
+    payload["words"][0]["explanation"] = ["a", "b"]
+    with pytest.raises(ValueError, match="explanation"):
+        parse_mining_response(payload)

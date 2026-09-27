@@ -121,7 +121,6 @@ class MineWizard(QDialog):
         try:
             connector = GeminiRestConnector(self._cfg.gemini_api_key, self._cfg.model)
             prompt = load_prompt(self._cfg.prompt_path)
-            topics = topic_vocabulary(self._client.tag_names())
         except Exception as exc:
             showWarning(
                 f"Could not start mining: {exc}\n\n"
@@ -130,6 +129,14 @@ class MineWizard(QDialog):
                 textFormat="plain",
             )
             return
+
+        # The collection's tags only refine the topic names Gemini is offered;
+        # if they can't be read, mining still works with the base topics.
+        try:
+            collection_tags = self._client.tag_names()
+        except Exception:
+            collection_tags = []
+        topics = topic_vocabulary(collection_tags)
 
         self._started_at = time.monotonic()
         self._mine_button.setEnabled(False)
@@ -247,6 +254,13 @@ class MineWizard(QDialog):
 
         layout.addLayout(header_row)
 
+        if block.explanation:
+            explanation = QLabel(
+                f'<span style="color:gray">{html.escape(block.explanation)}</span>'
+            )
+            explanation.setWordWrap(True)
+            layout.addWidget(explanation)
+
         if not block.sentences:
             empty = QLabel("no sentences returned for this word")
             empty.setEnabled(False)
@@ -270,9 +284,12 @@ class MineWizard(QDialog):
             label_html = highlight_html(
                 sentence.text, sentence.highlight, self._cfg.highlight_color
             )
+            details = [sentence.note] if sentence.note else []
             if sentence.topics:
-                topics_text = html.escape(", ".join(sentence.topics))
-                label_html += f' <span style="color:gray">· {topics_text}</span>'
+                details.append(", ".join(sentence.topics))
+            if details:
+                details_text = html.escape(" · ".join(details))
+                label_html += f' <span style="color:gray">· {details_text}</span>'
             label = QLabel(label_html)
             label.setWordWrap(True)
 

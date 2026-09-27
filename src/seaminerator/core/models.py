@@ -73,7 +73,7 @@ def _sentence_from_dict(data: dict, existing: dict[str, str]) -> Sentence:
     return Sentence(
         text=_require_str(data["text"], "text"),
         highlight=_require_str(data.get("highlight", ""), "highlight"),
-        note=data.get("note", ""),
+        note=_require_str(data.get("note", ""), "note"),
         topics=_topics_from(data.get("topics"), existing),
     )
 
@@ -84,7 +84,7 @@ def _word_from_dict(data: dict, existing: dict[str, str]) -> WordBlock:
         _require_str(translation, "translations")
     return WordBlock(
         expression=_require_str(data["expression"], "expression"),
-        explanation=data.get("explanation", ""),
+        explanation=_require_str(data.get("explanation", ""), "explanation"),
         translations=translations,
         class_tag=_class_tag_from(data.get("class_tag")),
         sentences=[_sentence_from_dict(s, existing) for s in data.get("sentences", [])],
