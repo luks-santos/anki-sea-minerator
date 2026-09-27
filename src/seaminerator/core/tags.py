@@ -70,4 +70,3 @@ def topic_vocabulary(all_tags: list[str]) -> list[str]:
 
 def class_label(tag: str) -> str:
     return tag.replace("-", " ").capitalize()
-

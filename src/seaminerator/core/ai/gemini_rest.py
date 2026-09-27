@@ -40,9 +40,20 @@ RESPONSE_SCHEMA = {
                                 "topics": {"type": "ARRAY", "items": _STRING},
                             },
                             "required": ["text", "highlight", "topics"],
+                            "propertyOrdering": ["text", "highlight", "note", "topics"],
                         },
                     },
                 },
+                # Without `propertyOrdering` the REST API may generate fields
+                # alphabetically. `class_tag` goes last so the class is chosen
+                # after the sentences exist, as the prompt's rules require.
+                "propertyOrdering": [
+                    "expression",
+                    "explanation",
+                    "translations",
+                    "sentences",
+                    "class_tag",
+                ],
                 "required": [
                     "expression",
                     "explanation",

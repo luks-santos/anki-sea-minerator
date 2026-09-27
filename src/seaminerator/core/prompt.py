@@ -75,6 +75,9 @@ Tagging rules:
   carries no grammar structure, which is the case for most nouns, adjectives,
   idioms and fixed expressions. Never use a class tag as a topic.
 - {existing}
+- A topic names the structure family, never the specific word: modal-verbs
+  (never modal-verb-will or modal-verb-would), conditionals (never
+  second-conditional-would).
 - Reuse an existing topic's exact spelling when the concept matches. Only when
   none fits, create a new topic tag in English kebab-case (e.g.
   past-continuous)."""

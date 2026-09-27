@@ -58,3 +58,9 @@ def test_tagging_instructions_tie_topics_to_the_highlighted_expression():
     text = tagging_instructions([])
     assert "expression itself carries in that sentence" in text
     assert "questions, negation" in text
+
+
+def test_tagging_instructions_ask_for_one_topic_per_structure_family():
+    text = tagging_instructions([])
+    assert "modal-verbs" in text
+    assert "modal-verb-will" in text

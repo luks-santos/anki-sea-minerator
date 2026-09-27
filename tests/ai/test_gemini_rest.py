@@ -174,3 +174,24 @@ def test_mine_maps_topics_back_to_the_collection_spelling():
     )
 
     assert words[0].sentences[0].topics == ["Verb_To_Be"]
+
+
+def test_response_schema_keeps_the_prompt_field_order():
+    captured = {}
+
+    def handler(request):
+        captured.update(json.loads(request.content))
+        return ok(PAYLOAD)
+
+    make_connector(handler).mine(["give up"], prompt="RULES")
+
+    word = captured["generationConfig"]["responseSchema"]["properties"]["words"]
+    assert word["items"]["propertyOrdering"] == [
+        "expression",
+        "explanation",
+        "translations",
+        "sentences",
+        "class_tag",
+    ]
+    sentence = word["items"]["properties"]["sentences"]["items"]
+    assert sentence["propertyOrdering"] == ["text", "highlight", "note", "topics"]
