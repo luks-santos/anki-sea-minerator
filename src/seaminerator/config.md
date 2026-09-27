@@ -7,4 +7,5 @@
   Changing it rewrites the note type template, which affects existing cards.
 - `highlight_color` — CSS color for the studied expression on the front.
 - `prompt_path` — path to a file overriding the built-in mining prompt.
-  Blank uses the built-in prompt.
+  Blank uses the built-in prompt. The grammar class and topic rules are always
+  appended to it, and the response format is fixed by the add-on.

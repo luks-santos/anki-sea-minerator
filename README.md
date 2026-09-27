@@ -7,10 +7,10 @@ vocabulary into flashcards, powered by Google Gemini.
 
 You open `Tools → Mine vocabulary…` in Anki, paste a "list of the day" (one
 word or expression per line), and pick a target deck. Gemini returns
-structured data for each item — a short explanation, a grammar class tag,
-translations, and example sentences with the mined expression marked and
-their grammar topic tags. You
-review the sentences and check off which ones should become cards. On
+structured data for each item — a short explanation, its grammar class,
+translations, and example sentences with the mined expression marked, each
+with a usage note and the grammar topics it exercises. You review the
+sentences and check off which ones should become cards. On
 confirmation, Sea Minerator creates one Anki note per selected sentence, all
 under a single undo step, and shows a summary of what was created.
 
@@ -25,13 +25,13 @@ first time you mine:
 
 - **Front:** the example sentence, with the mined expression highlighted in
   color, plus an inline `{{tts}}` tag that plays the sentence aloud.
-- **Back:** the expression, its translations, and its grammar class (e.g.
-  "Phrasal verb").
-- **Tags:** `anki-sea-minerator`, one grammar class (`noun`, `verb`,
-  `phrasal-verb`, `idiom`, `expression`…) and the grammar topics the sentence
-  exercises (`past-simple`, `present-perfect`…). Topics reuse the tags that
-  already exist in your collection; a new one is created only when none fits.
-  The class can be changed per word in the review screen.
+- **Back:** the expression, its translations, and in parentheses its grammar
+  class plus the grammar topics the sentence exercises, e.g.
+  `Have been: Tenho sido, Estive (Verb · present-perfect)`. The class always
+  comes from a fixed list (`Noun`, `Verb`, `Phrasal verb`, `Idiom`,
+  `Expression`…), so it can be searched reliably: `"back:*(Phrasal verb*"` in
+  the Browse window finds every phrasal verb.
+- **Tags:** only `anki-sea-minerator`, so mined cards can be told apart.
 
 ## Install
 
@@ -54,7 +54,9 @@ The config screen (Anki's built-in JSON editor) also lets you set:
   Changing it rewrites the note type's template, which affects existing cards.
 - `highlight_color` — the CSS color used for the studied expression.
 - `prompt_path` — a file overriding the built-in mining prompt, if you want to
-  customize how Gemini is instructed.
+  customize how Gemini is instructed. The grammar class and topic rules are
+  always appended to it, and the response format is fixed by the add-on, so a
+  custom prompt should not describe a `grammar_class` field.
 
 See `src/seaminerator/config.md` for the full reference.
 
@@ -63,7 +65,9 @@ See `src/seaminerator/config.md` for the full reference.
 `Tools → Mine vocabulary…` opens the wizard:
 
 1. Paste your list and choose a deck, then click **Mine**.
-2. Review each word's sentences and check the ones you want as cards.
+2. Review each word's sentences and check the ones you want as cards. Each
+   word shows its explanation and its grammar class, which you can change in
+   the dropdown; each sentence shows its usage note and grammar topics.
 3. Click **Create cards**. Anki creates them as one batch, undoable in one
    step (`Edit → Undo`).
 4. The summary screen shows how many cards were created and any warnings
