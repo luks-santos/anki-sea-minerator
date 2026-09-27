@@ -42,13 +42,15 @@ def test_count_selected_is_zero_for_empty_selection():
 
 
 def test_selected_sentences_returns_blocks_with_their_chosen_sentences():
-    blocks = [make_block("give up", 3), make_block("overwhelming", 2)]
-    pairs = selected_sentences(blocks, {0: {0, 2}, 1: set()})
+    blocks = [make_block("give up", 12), make_block("overwhelming", 2)]
+    # {3, 11} iterates as [11, 3] in CPython, so this only passes if
+    # selected_sentences really sorts the indices.
+    pairs = selected_sentences(blocks, {0: {3, 11}, 1: set()})
 
     assert len(pairs) == 1
     word, sentences = pairs[0]
     assert word.expression == "give up"
-    assert [s.text for s in sentences] == ["give up 0.", "give up 2."]
+    assert [s.text for s in sentences] == ["give up 3.", "give up 11."]
 
 
 def test_format_elapsed_uses_seconds_below_a_minute():
