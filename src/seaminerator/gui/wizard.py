@@ -40,6 +40,15 @@ from ..core.session import (
 from ..core.tags import CLASS_TAGS, topic_vocabulary
 
 
+class _NoWheelComboBox(QComboBox):
+    # The review screen is a scroll area with one class combo per word. A
+    # stock QComboBox eats wheel events even without focus (the default on
+    # Windows and Linux styles), so scrolling past a combo would silently
+    # change that word's class. Ignoring the event hands it to the scroll area.
+    def wheelEvent(self, event) -> None:
+        event.ignore()
+
+
 class MineWizard(QDialog):
     def __init__(self, parent: QWidget) -> None:
         super().__init__(parent)
@@ -206,12 +215,14 @@ class MineWizard(QDialog):
         header_row = QHBoxLayout()
         header_row.addWidget(QLabel(f"<b>{html.escape(block.expression)}</b> —"))
 
-        class_box = QComboBox()
+        class_box = _NoWheelComboBox()
         class_box.setEditable(True)
         class_box.addItems(CLASS_TAGS)
         if block.class_tag not in CLASS_TAGS:
             class_box.addItem(block.class_tag)
-        class_box.setCurrentText(block.class_tag)
+        # `setCurrentText` on an editable combo only sets the edit text and
+        # leaves the index on the first item; select the item itself.
+        class_box.setCurrentIndex(class_box.findText(block.class_tag))
         # Raw text is stored as-is; `apply_class_overrides` normalizes it and
         # falls back to the model's class when it is blank.
         class_box.currentTextChanged.connect(
