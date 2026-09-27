@@ -52,6 +52,21 @@ def sentence_details(sentence: Sentence) -> str:
     return " · ".join(details)
 
 
+def import_status(card_count: int, warnings: list[str], limit: int = 5) -> str:
+    # Capped so a badly formatted paste can't grow the dialog off-screen.
+    status = f"{card_count} card(s) ready"
+    if not warnings:
+        return status
+    lines = warnings[:limit]
+    if len(warnings) > limit:
+        lines.append(f"…and {len(warnings) - limit} more")
+    return f"{status} · {len(warnings)} problem(s):\n" + "\n".join(lines)
+
+
+def failure_lines(results: list[CardResult]) -> list[str]:
+    return [f"{r.expression} — {r.warning}" for r in results if not r.created]
+
+
 def default_selection(blocks: list[WordBlock]) -> dict[int, set[int]]:
     return {i: {0} for i, b in enumerate(blocks) if b.sentences}
 

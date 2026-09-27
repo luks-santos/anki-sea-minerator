@@ -137,3 +137,15 @@ def test_ensure_notetype_adds_the_label_style_to_an_existing_note_type(col):
     css = col.models.by_name(NOTE_TYPE_NAME)["css"]
     assert css.startswith(".card { color: black; }")
     assert LABEL_CSS in css
+
+
+def test_ensure_notetype_keeps_a_user_edited_label_rule(col):
+    ensure_notetype(col, "en_US")
+    model = col.models.by_name(NOTE_TYPE_NAME)
+    model["css"] = '.sm-label::before { content: attr(data-label) ": "; }'
+    col.models.save(model)
+
+    ensure_notetype(col, "en_US")
+
+    css = col.models.by_name(NOTE_TYPE_NAME)["css"]
+    assert css == '.sm-label::before { content: attr(data-label) ": "; }'

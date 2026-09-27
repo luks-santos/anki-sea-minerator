@@ -3,7 +3,11 @@ from pathlib import Path
 
 import pytest
 
-from seaminerator.addon_config import config_from_dict, config_to_dict
+from seaminerator.addon_config import (
+    config_from_dict,
+    config_to_dict,
+    display_config,
+)
 from seaminerator.core.config import Config, ConfigError, ProviderSettings
 
 SHIPPED = Path(__file__).parent.parent / "src" / "seaminerator" / "config.json"
@@ -102,3 +106,27 @@ def test_config_to_dict_round_trips():
 
 def test_config_to_dict_writes_a_missing_key_as_blank():
     assert config_to_dict(Config())["providers"]["gemini"]["api_key"] == ""
+
+
+def test_display_config_keeps_top_level_values_of_a_broken_config():
+    data = shipped()
+    data["provider"] = "nope"
+    data["tts_lang"] = "en_GB"
+    data["default_deck"] = "Grammar"
+
+    cfg = display_config(data)
+
+    assert cfg.tts_lang == "en_GB"
+    assert cfg.default_deck == "Grammar"
+    assert cfg.provider == "gemini"
+
+
+def test_display_config_ignores_non_string_values_of_a_broken_config():
+    cfg = display_config({"tts_lang": 5})
+    assert cfg.tts_lang == Config().tts_lang
+
+
+def test_display_config_reads_a_valid_config_normally():
+    data = shipped()
+    data["providers"]["gemini"]["api_key"] = "k"
+    assert display_config(data) == config_from_dict(data)

@@ -6,6 +6,7 @@ from seaminerator.core.flow import (
     create_imported_cards,
     imported_back,
     imported_front,
+    prepare_import,
 )
 from seaminerator.core.models import ImportedCard, Sentence, WordBlock
 
@@ -180,3 +181,47 @@ def test_create_imported_cards_maps_over_list():
 
     assert len(results) == 2
     assert all(r.created for r in results)
+
+
+def test_imported_back_does_not_repeat_a_topic_already_there():
+    back = "Eu acabei de chegar. (present-perfect)"
+    assert imported_back(back, "present perfect") == back
+
+
+LABEL_ONLY = """[Grammar]
+Eu acabei de chegar.
+
+[Grammar] Have you seen him?
+Você viu ele?"""
+
+
+def test_prepare_import_skips_a_front_that_has_only_a_label():
+    plan = prepare_import(LABEL_ONLY, "present perfect")
+
+    assert [c.front for c in plan.cards] == ["[Grammar] Have you seen him?"]
+    assert plan.warnings == ["card '[Grammar]' skipped: the front has only a label"]
+    assert plan.topic == "present-perfect"
+
+
+def test_prepare_import_keeps_the_parse_warnings():
+    plan = prepare_import("front only", "")
+    assert plan.cards == []
+    assert plan.warnings == ["block 1 skipped: expected 2 lines (front, back), got 1"]
+
+
+def test_prepare_import_warns_about_a_topic_that_normalizes_to_nothing():
+    plan = prepare_import("F.\nB.", " ??? ")
+    assert plan.topic == ""
+    assert plan.warnings == ["topic '???' ignored: use letters, digits and spaces"]
+
+
+def test_prepare_import_refuses_a_reserved_tag_as_topic():
+    plan = prepare_import("F.\nB.", "anki-sea-minerator")
+    assert plan.topic == ""
+    assert plan.warnings == ["topic 'anki-sea-minerator' ignored: it is a reserved tag"]
+
+
+def test_prepare_import_accepts_a_class_name_as_topic():
+    plan = prepare_import("F.\nB.", "phrasal verb")
+    assert plan.topic == "phrasal-verb"
+    assert plan.warnings == []

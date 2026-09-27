@@ -51,7 +51,9 @@ def ensure_notetype(col, lang: str) -> int:
 
 
 def _add_label_css(model: dict) -> bool:
-    if LABEL_CSS in model["css"]:
+    # Match on the selector, not the whole rule, so a user who restyles the
+    # label keeps their version instead of getting ours appended again.
+    if f".{LABEL_CLASS}::before" in model["css"]:
         return False
     model["css"] = f"{model['css'].rstrip()}\n\n{LABEL_CSS}\n"
     return True

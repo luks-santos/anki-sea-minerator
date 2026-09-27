@@ -6,8 +6,8 @@ from dataclasses import dataclass
 
 from .cards import build_back, highlight_html
 from .config import Config
-from .models import ImportedCard, Sentence, WordBlock
-from .tags import ORIGIN_TAG, normalize_tag
+from .models import ImportedCard, Sentence, WordBlock, parse_imported_text
+from .tags import ORIGIN_TAG, RESERVED_TAGS, normalize_tag
 
 NOTE_TYPE_NAME = "Sea Minerator"
 FRONT_FIELD = "Front"
@@ -78,7 +78,40 @@ def imported_front(front: str) -> str:
 
 def imported_back(back: str, topic: str) -> str:
     tag = normalize_tag(topic)
-    return f"{back} ({tag})" if tag else back
+    if not tag or back.rstrip().endswith(f"({tag})"):
+        return back
+    return f"{back} ({tag})"
+
+
+@dataclass(frozen=True)
+class ImportPlan:
+    cards: list[ImportedCard]
+    warnings: list[str]
+    topic: str  # normalized; "" when there is none
+
+
+def prepare_import(text: str, topic: str) -> ImportPlan:
+    cards, warnings = parse_imported_text(text)
+
+    kept: list[ImportedCard] = []
+    for card in cards:
+        match = _LABEL_PREFIX.match(card.front)
+        if match and not match.group(2).strip():
+            # "[Grammar]" alone would become an empty note (Anki rejects it
+            # as empty with a misleading "duplicate or empty" message).
+            warnings.append(f"card '{card.front}' skipped: the front has only a label")
+        else:
+            kept.append(card)
+
+    tag = normalize_tag(topic)
+    if topic.strip() and not tag:
+        warnings.append(
+            f"topic '{topic.strip()}' ignored: use letters, digits and spaces"
+        )
+    elif tag in RESERVED_TAGS:
+        warnings.append(f"topic '{tag}' ignored: it is a reserved tag")
+        tag = ""
+    return ImportPlan(cards=kept, warnings=warnings, topic=tag)
 
 
 def create_imported_card(
