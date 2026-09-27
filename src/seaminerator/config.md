@@ -5,7 +5,8 @@ provider, paste its API key, choose a model and test the connection. Editing
 this JSON directly is only needed for `prompt_path`.
 
 - `provider` — `gemini`, `openai` (OpenAI and compatible services such as
-  OpenRouter, Groq, DeepSeek), `anthropic`, or `local` (Ollama, LM Studio).
+  OpenRouter or Groq, with a model that supports `json_schema` structured
+  outputs), `anthropic`, or `local` (Ollama, LM Studio).
 - `providers` — one block per provider with `api_key`, `model` and
   `base_url`. Keys are stored in plain text.
 - `default_deck` — deck pre-selected in the wizard. Blank means no default.

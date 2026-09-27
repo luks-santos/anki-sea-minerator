@@ -48,7 +48,9 @@ first time you mine:
 2. Pick a provider:
    - **Gemini**: free key from [Google AI Studio](https://aistudio.google.com/).
    - **OpenAI & compatible**: an OpenAI key, or change the base URL to
-     another compatible service (OpenRouter, Groq, DeepSeek…) and use its key.
+     another compatible service (OpenRouter, Groq…) and use its key. The
+     service and model must support `json_schema` structured outputs; some
+     don't (DeepSeek's API, for instance, only offers plain JSON mode).
    - **Anthropic**: a key from the [Anthropic Console](https://console.anthropic.com/).
    - **Local**: run [Ollama](https://ollama.com/) or LM Studio; no key needed.
      Pick a model that supports structured output.

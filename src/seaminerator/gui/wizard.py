@@ -62,15 +62,9 @@ class MineWizard(QDialog):
         self.setWindowTitle("Mine vocabulary")
         self.resize(720, 560)
 
-        config = mw.addonManager.getConfig(__name__.split(".")[0]) or {}
+        self._cfg = Config()
         self._config_error: str | None = None
-        try:
-            self._cfg = config_from_dict(config)
-        except ConfigError as exc:
-            # The review screen still needs colors and a deck list, so fall
-            # back to defaults; mining is refused until the config is fixed.
-            self._cfg = Config()
-            self._config_error = str(exc)
+        self._reload_config()
         self._client = CollectionAnkiClient(mw.col)
         self._blocks: list[WordBlock] = []
         self._selection: dict[int, set[int]] = {}
@@ -120,18 +114,27 @@ class MineWizard(QDialog):
         self._closed = True
         super().done(result)
 
+    def _reload_config(self) -> None:
+        # Read on open and again before every mining run: the wizard is
+        # non-modal, so the user may fix the key or switch provider in
+        # Tools → Sea Minerator settings… while it stays open.
+        config = mw.addonManager.getConfig(__name__.split(".")[0]) or {}
+        try:
+            self._cfg = config_from_dict(config)
+            self._config_error = None
+        except ConfigError as exc:
+            # The review screen still needs colors and a deck list, so keep
+            # the previous (or default) config; mining is refused until the
+            # config is fixed.
+            self._config_error = str(exc)
+
     def _config_problem(self, message: str) -> None:
         # The settings dialog shows what is missing; `message` is kept for
         # the callers, which pass the ConfigError text.
         from .settings import open_settings
 
         if open_settings(self):
-            config = mw.addonManager.getConfig(__name__.split(".")[0]) or {}
-            try:
-                self._cfg = config_from_dict(config)
-                self._config_error = None
-            except ConfigError as exc:
-                self._config_error = str(exc)
+            self._reload_config()
 
     def _start_mining(self) -> None:
         words = parse_word_list(self._words_edit.toPlainText())
@@ -139,6 +142,7 @@ class MineWizard(QDialog):
         if error:
             showWarning(error, parent=self)
             return
+        self._reload_config()
         if self._config_error:
             self._config_problem(self._config_error)
             return

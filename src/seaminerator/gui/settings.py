@@ -205,10 +205,18 @@ class SettingsDialog(QDialog):
             self._cfg = editor.result_config
             self._blocks = dict(self._cfg.providers)
             self._current = self._cfg.provider
+            # Without blocking, setCurrentIndex fires _on_provider_changed,
+            # which would store the form (still showing the old provider)
+            # into the new provider's block and overwrite the JSON edit.
+            self._provider_box.blockSignals(True)
             self._provider_box.setCurrentIndex(
                 self._provider_box.findData(self._current)
             )
+            self._provider_box.blockSignals(False)
             self._show_block(self._current)
+            self._deck_box.setCurrentText(self._cfg.default_deck)
+            self._tts_edit.setText(self._cfg.tts_lang)
+            self._color_edit.setText(self._cfg.highlight_color)
 
 
 class _JsonEditor(QDialog):
