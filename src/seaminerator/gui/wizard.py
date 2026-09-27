@@ -34,8 +34,12 @@ from ..core.session import (
     apply_class_overrides,
     count_selected,
     default_selection,
+    parse_word_list,
     selected_sentences,
+    sentence_details,
+    start_error,
     summarize,
+    toggle_selection,
 )
 from ..core.tags import CLASS_TAGS, topic_vocabulary
 
@@ -64,6 +68,7 @@ class MineWizard(QDialog):
         self._class_overrides: dict[int, str] = {}
         self._results: list[CardResult] = []
         self._creating = False
+        self._closed = False
         self._started_at = 0.0
 
         self._pages = QStackedWidget(self)
@@ -97,29 +102,25 @@ class MineWizard(QDialog):
 
         return page
 
-    def _words(self) -> list[str]:
-        raw = self._words_edit.toPlainText()
-        return [line.strip() for line in raw.splitlines() if line.strip()]
+    def done(self, result: int) -> None:
+        # Every way out of the dialog (Close, Cancel, Esc, the title-bar X)
+        # ends here. A mining or card-creation op still running in the
+        # background checks this flag in its callback and drops the result
+        # instead of rebuilding pages on a dialog that is already gone.
+        self._closed = True
+        super().done(result)
 
     def _start_mining(self) -> None:
-        if not self._cfg.gemini_api_key:
-            showWarning(
-                "No Gemini API key configured.\n\n"
-                "Set it in Tools → Add-ons → Sea Minerator → Config.",
-                parent=self,
-            )
+        api_key = self._cfg.gemini_api_key
+        words = parse_word_list(self._words_edit.toPlainText())
+        error = start_error(api_key, words, self._deck_box.currentText())
+        if error:
+            showWarning(error, parent=self)
             return
-
-        words = self._words()
-        if not words:
-            showWarning("Paste at least one word to mine.", parent=self)
-            return
-        if not self._deck_box.currentText():
-            showWarning("Choose a target deck.", parent=self)
-            return
+        assert api_key is not None  # start_error rejects a missing key
 
         try:
-            connector = GeminiRestConnector(self._cfg.gemini_api_key, self._cfg.model)
+            connector = GeminiRestConnector(api_key, self._cfg.model)
             prompt = load_prompt(self._cfg.prompt_path)
         except Exception as exc:
             showWarning(
@@ -152,6 +153,8 @@ class MineWizard(QDialog):
         ).run_in_background()
 
     def _on_mining_failed(self, exc: Exception) -> None:
+        if self._closed:
+            return
         self._mine_button.setEnabled(True)
         if isinstance(exc, GeminiError):
             showWarning(str(exc), parent=self, textFormat="plain")
@@ -160,6 +163,8 @@ class MineWizard(QDialog):
         self._pages.setCurrentWidget(self._input_page)
 
     def _on_mined(self, blocks: list[WordBlock]) -> None:
+        if self._closed:
+            return
         self._mine_button.setEnabled(True)
         if not blocks:
             showWarning("The model returned no words.", parent=self)
@@ -200,10 +205,18 @@ class MineWizard(QDialog):
         self._count_label = QLabel("")
         footer.addWidget(self._count_label)
         footer.addStretch(1)
+        cancel_button = QPushButton("Cancel", page)
+        cancel_button.clicked.connect(self.reject)
+        footer.addWidget(cancel_button)
         self._create_button = QPushButton("Create cards", page)
         self._create_button.clicked.connect(self._create_cards)
         footer.addWidget(self._create_button)
         outer.addLayout(footer)
+        # QDialog push buttons are auto-default, so Enter clicks one of them.
+        # On this page that could create the cards from inside the class
+        # combo's text field, so no button here reacts to Enter.
+        for button in page.findChildren(QPushButton):
+            button.setAutoDefault(False)
 
         self._pages.addWidget(page)
         self._pages.setCurrentWidget(page)
@@ -284,12 +297,11 @@ class MineWizard(QDialog):
             label_html = highlight_html(
                 sentence.text, sentence.highlight, self._cfg.highlight_color
             )
-            details = [sentence.note] if sentence.note else []
-            if sentence.topics:
-                details.append(", ".join(sentence.topics))
+            details = sentence_details(sentence)
             if details:
-                details_text = html.escape(" · ".join(details))
-                label_html += f' <span style="color:gray">· {details_text}</span>'
+                label_html += (
+                    f' <span style="color:gray">· {html.escape(details)}</span>'
+                )
             label = QLabel(label_html)
             label.setWordWrap(True)
 
@@ -302,11 +314,7 @@ class MineWizard(QDialog):
         return box
 
     def _toggle(self, w_index: int, s_index: int, checked: bool) -> None:
-        chosen = self._selection.setdefault(w_index, set())
-        if checked:
-            chosen.add(s_index)
-        else:
-            chosen.discard(s_index)
+        toggle_selection(self._selection, w_index, s_index, checked)
         self._refresh_count()
 
     def _set_all(self, w_index: int, checked: bool) -> None:
@@ -353,11 +361,15 @@ class MineWizard(QDialog):
         ).run_in_background()
 
     def _on_cards_created(self, _changes) -> None:
+        if self._closed:
+            return
         self._creating = False
         self._refresh_count()
         self._show_summary()
 
     def _on_create_failed(self, exc: Exception) -> None:
+        if self._closed:
+            return
         self._creating = False
         self._refresh_count()
         showWarning(f"Could not create cards: {exc}", parent=self, textFormat="plain")
