@@ -121,12 +121,17 @@ class MineWizard(QDialog):
         super().done(result)
 
     def _config_problem(self, message: str) -> None:
-        showWarning(
-            f"Sea Minerator is not configured: {message}.\n\n"
-            "Set the provider in Tools → Add-ons → Sea Minerator → Config.",
-            parent=self,
-            textFormat="plain",
-        )
+        # The settings dialog shows what is missing; `message` is kept for
+        # the callers, which pass the ConfigError text.
+        from .settings import open_settings
+
+        if open_settings(self):
+            config = mw.addonManager.getConfig(__name__.split(".")[0]) or {}
+            try:
+                self._cfg = config_from_dict(config)
+                self._config_error = None
+            except ConfigError as exc:
+                self._config_error = str(exc)
 
     def _start_mining(self) -> None:
         words = parse_word_list(self._words_edit.toPlainText())

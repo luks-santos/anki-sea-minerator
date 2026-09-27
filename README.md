@@ -1,12 +1,13 @@
 # Sea Minerator
 
 An [Anki](https://apps.ankiweb.net/) add-on that mines a list of English
-vocabulary into flashcards, powered by Google Gemini.
+vocabulary into flashcards, powered by the AI provider you choose: Google
+Gemini, OpenAI or a compatible service, Anthropic's Claude, or a local model.
 
 ## What it does
 
 You open `Tools → Mine vocabulary…` in Anki, paste a "list of the day" (one
-word or expression per line), and pick a target deck. Gemini returns
+word or expression per line), and pick a target deck. Your AI provider returns
 structured data for each item — a short explanation, its grammar class,
 translations, and example sentences with the mined expression marked, each
 with a usage note and the grammar topics it exercises. You review the
@@ -15,8 +16,8 @@ confirmation, Sea Minerator creates one Anki note per selected sentence, all
 under a single undo step, and shows a summary of what was created.
 
 Everything runs inside Anki's own process: there is no external server, no
-AnkiConnect, and no CLI. The add-on talks to Gemini directly over HTTPS and
-writes notes straight into your collection.
+AnkiConnect, and no CLI. The add-on talks to the provider directly over HTTP(S)
+and writes notes straight into your collection.
 
 ## How a card looks
 
@@ -42,19 +43,30 @@ first time you mine:
 
 ## Setup
 
-1. Get a free Gemini API key from [Google AI Studio](https://aistudio.google.com/).
-2. In Anki: `Tools → Add-ons`, select **Sea Minerator**, click **Config**, and
-   paste the key into `gemini_api_key`. Save.
+1. Open `Tools → Sea Minerator settings…` (or `Tools → Add-ons`, select
+   **Sea Minerator**, click **Config**).
+2. Pick a provider:
+   - **Gemini**: free key from [Google AI Studio](https://aistudio.google.com/).
+   - **OpenAI & compatible**: an OpenAI key, or change the base URL to
+     another compatible service (OpenRouter, Groq, DeepSeek…) and use its key.
+   - **Anthropic**: a key from the [Anthropic Console](https://console.anthropic.com/).
+   - **Local**: run [Ollama](https://ollama.com/) or LM Studio; no key needed.
+     Pick a model that supports structured output.
+3. Paste the key, click **Load models**, choose a model, and **Test connection**.
+4. **Save**.
 
-The config screen (Anki's built-in JSON editor) also lets you set:
+Keys are stored in plain text in Anki's add-on folder.
 
-- `model` — the Gemini model id, e.g. `gemini-2.5-flash`.
+The settings dialog also sets:
+
 - `default_deck` — the deck pre-selected in the wizard.
 - `tts_lang` — the language passed to Anki's `{{tts}}` tag, e.g. `en_US`.
   Changing it rewrites the note type's template, which affects existing cards.
 - `highlight_color` — the CSS color used for the studied expression.
+Its **Advanced…** button edits the raw config, the only place for:
+
 - `prompt_path` — a file overriding the built-in mining prompt, if you want to
-  customize how Gemini is instructed. The grammar class and topic rules are
+  customize how the model is instructed. The grammar class and topic rules are
   always appended to it, and the response format is fixed by the add-on, so a
   custom prompt should not describe a `grammar_class` field.
 
