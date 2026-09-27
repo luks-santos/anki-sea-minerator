@@ -5,6 +5,8 @@ set -euo pipefail
 # component): __init__.py and manifest.json must sit at the archive root.
 # AnkiWeb rejects archives containing __pycache__.
 
+cd "$(dirname "$0")/.."
+
 SRC="src/seaminerator"
 OUT="dist/sea-minerator.ankiaddon"
 
