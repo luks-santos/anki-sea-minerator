@@ -1,18 +1,32 @@
-from seaminerator.core.config import Config
+import dataclasses
+
+import pytest
+
+from seaminerator.core.config import PROVIDERS, Config, ProviderSettings
 
 
-def test_config_defaults():
+def test_default_config_uses_gemini_without_a_key():
     cfg = Config()
-    assert cfg.gemini_api_key is None
-    assert cfg.model == "gemini-2.5-flash"
+    assert cfg.provider == "gemini"
+    assert cfg.providers["gemini"] == ProviderSettings(
+        api_key=None,
+        model="gemini-2.5-flash",
+        base_url="https://generativelanguage.googleapis.com/v1beta",
+    )
     assert cfg.tts_lang == "en_US"
     assert cfg.highlight_color == "#2563eb"
-    assert cfg.default_deck == ""
-    assert cfg.prompt_path == ""
 
 
-def test_config_accepts_overrides():
-    cfg = Config(gemini_api_key="k", tts_lang="pt_BR", highlight_color="#ff0000")
-    assert cfg.gemini_api_key == "k"
-    assert cfg.tts_lang == "pt_BR"
-    assert cfg.highlight_color == "#ff0000"
+def test_providers_table_matches_the_spec():
+    assert list(PROVIDERS) == ["gemini", "openai", "anthropic", "local"]
+    assert PROVIDERS["local"].needs_key is False
+    assert PROVIDERS["local"].timeout == 300.0
+    assert PROVIDERS["openai"].base_url_editable is True
+    assert PROVIDERS["anthropic"].base_url_editable is False
+    assert PROVIDERS["anthropic"].default.model == "claude-haiku-4-5-20251001"
+    assert PROVIDERS["local"].default.base_url == "http://localhost:11434/v1"
+
+
+def test_config_is_frozen():
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        Config().provider = "openai"  # type: ignore[misc]

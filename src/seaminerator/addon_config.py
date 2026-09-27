@@ -1,16 +1,58 @@
 from __future__ import annotations
 
-from dataclasses import fields
+from .core.config import PROVIDERS, Config, ConfigError, ProviderSettings
 
-from .core.config import Config
+_TOP_LEVEL_STRINGS = ("default_deck", "tts_lang", "highlight_color", "prompt_path")
 
 
 def config_from_dict(data: dict) -> Config:
-    known = {f.name for f in fields(Config)}
-    values = {k: v for k, v in data.items() if k in known}
-    key = values.get("gemini_api_key")
-    # A blank or non-string key (e.g. a number typed without quotes in the
-    # config editor) is treated as missing, so the wizard says so plainly.
-    if not isinstance(key, str) or not key.strip():
-        values["gemini_api_key"] = None
-    return Config(**values)
+    # Strict on purpose: there is exactly one config shape. Unknown top-level
+    # keys are ignored because Anki merges shipped defaults into a stored
+    # config at the top level only, so stale keys can linger.
+    provider = data.get("provider")
+    if provider not in PROVIDERS:
+        raise ConfigError(f"unknown provider {provider!r}")
+
+    blocks = data.get("providers")
+    if not isinstance(blocks, dict):
+        raise ConfigError("the config has no 'providers' block")
+
+    providers: dict[str, ProviderSettings] = {}
+    for provider_id in PROVIDERS:
+        block = blocks.get(provider_id)
+        if not isinstance(block, dict):
+            raise ConfigError(f"the config has no settings for {provider_id!r}")
+        model, base_url = block.get("model"), block.get("base_url")
+        if not isinstance(model, str) or not isinstance(base_url, str):
+            raise ConfigError(f"invalid model or base_url for {provider_id!r}")
+        key = block.get("api_key")
+        api_key = key.strip() if isinstance(key, str) and key.strip() else None
+        providers[provider_id] = ProviderSettings(api_key, model, base_url)
+
+    values: dict[str, str] = {}
+    defaults = Config()
+    for name in _TOP_LEVEL_STRINGS:
+        value = data.get(name, getattr(defaults, name))
+        if not isinstance(value, str):
+            raise ConfigError(f"{name!r} must be text")
+        values[name] = value
+
+    return Config(provider=provider, providers=providers, **values)
+
+
+def config_to_dict(config: Config) -> dict:
+    return {
+        "provider": config.provider,
+        "providers": {
+            provider_id: {
+                "api_key": settings.api_key or "",
+                "model": settings.model,
+                "base_url": settings.base_url,
+            }
+            for provider_id, settings in config.providers.items()
+        },
+        "default_deck": config.default_deck,
+        "tts_lang": config.tts_lang,
+        "highlight_color": config.highlight_color,
+        "prompt_path": config.prompt_path,
+    }

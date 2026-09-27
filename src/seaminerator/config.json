@@ -1,6 +1,27 @@
 {
-  "gemini_api_key": "",
-  "model": "gemini-2.5-flash",
+  "provider": "gemini",
+  "providers": {
+    "gemini": {
+      "api_key": "",
+      "model": "gemini-2.5-flash",
+      "base_url": "https://generativelanguage.googleapis.com/v1beta"
+    },
+    "openai": {
+      "api_key": "",
+      "model": "",
+      "base_url": "https://api.openai.com/v1"
+    },
+    "anthropic": {
+      "api_key": "",
+      "model": "claude-haiku-4-5-20251001",
+      "base_url": "https://api.anthropic.com"
+    },
+    "local": {
+      "api_key": "",
+      "model": "",
+      "base_url": "http://localhost:11434/v1"
+    }
+  },
   "default_deck": "",
   "tts_lang": "en_US",
   "highlight_color": "#2563eb",
