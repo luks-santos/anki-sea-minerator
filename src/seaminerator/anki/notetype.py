@@ -12,7 +12,12 @@ __all__ = [
 ]
 
 TEMPLATE_NAME = "Card 1"
-BACK_TEMPLATE = "{{FrontSide}}\n\n<hr id=answer>\n\n{{Back}}"
+# Tags go on the back only: on the front, the class tag would give the
+# answer away before the card is flipped.
+BACK_TEMPLATE = (
+    "{{FrontSide}}\n\n<hr id=answer>\n\n{{Back}}\n\n"
+    '<div style="font-size: 12px; color: gray; margin-top: 16px;">{{Tags}}</div>'
+)
 
 
 def tts_tag(lang: str) -> str:
