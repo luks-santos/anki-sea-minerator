@@ -16,6 +16,15 @@ def test_parse_json_object_strips_a_markdown_fence():
     assert parse_json_object(text) == {"words": []}
 
 
+def test_parse_json_object_strips_an_uppercase_fence():
+    assert parse_json_object('```JSON\n{"words": []}\n```') == {"words": []}
+
+
+def test_parse_json_object_finds_a_fence_after_some_text():
+    text = 'Here it is:\n```json\n{"words": []}\n```\nEnjoy!'
+    assert parse_json_object(text) == {"words": []}
+
+
 def test_parse_json_object_rejects_text_that_is_not_json():
     with pytest.raises(AIError, match="outside the expected format"):
         parse_json_object("sorry, I can't help")

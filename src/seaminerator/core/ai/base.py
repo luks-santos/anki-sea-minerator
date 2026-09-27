@@ -13,7 +13,7 @@ OUTSIDE_FORMAT_MESSAGE = (
     "use a model that supports structured output"
 )
 
-_FENCE = re.compile(r"^\s*```(?:json)?\s*(.*?)\s*```\s*$", re.DOTALL)
+_FENCE = re.compile(r"```(?:json)?\s*(.*?)\s*```", re.DOTALL | re.IGNORECASE)
 
 
 class AIError(Exception):
@@ -34,8 +34,9 @@ class AIProvider(Protocol):
 
 def parse_json_object(text: str) -> dict:
     # Models without real structured output (small local ones especially)
-    # sometimes wrap the JSON in a Markdown fence; unwrap it before parsing.
-    match = _FENCE.match(text)
+    # sometimes wrap the JSON in a Markdown fence, with or without a line of
+    # text before it; parse the first fenced block when there is one.
+    match = _FENCE.search(text)
     if match:
         text = match.group(1)
     try:
