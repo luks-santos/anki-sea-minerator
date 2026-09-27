@@ -203,7 +203,9 @@ class MineWizard(QDialog):
             return
         self._blocks = blocks
         try:
-            ensure_notetype(mw.col, self._cfg.tts_lang)
+            ensure_notetype(
+                mw.col, self._cfg.tts_lang, self._cfg.tts_voices, self._cfg.tts_speed
+            )
         except Exception as exc:
             showWarning(
                 f"Could not prepare the '{NOTE_TYPE_NAME}' note type: {exc}",

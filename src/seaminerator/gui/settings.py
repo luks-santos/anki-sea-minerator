@@ -9,6 +9,7 @@ from aqt.qt import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
+    QDoubleSpinBox,
     QFormLayout,
     QHBoxLayout,
     QLabel,
@@ -25,7 +26,15 @@ from ..addon_config import config_from_dict, config_to_dict, display_config
 from ..anki.collection_client import CollectionAnkiClient
 from ..core.ai.base import AIError
 from ..core.ai.registry import build_provider
-from ..core.config import PROVIDERS, Config, ConfigError, ProviderSettings
+from ..core.config import (
+    PROVIDERS,
+    TTS_SPEED_MAX,
+    TTS_SPEED_MIN,
+    Config,
+    ConfigError,
+    ProviderSettings,
+    voice_names,
+)
 from ..core.settings import (
     form_to_config,
     mask_keys,
@@ -34,7 +43,9 @@ from ..core.settings import (
     unmask_keys,
     validate,
     visible_fields,
+    voice_choices,
 )
+from .voices import installed_voices, preview
 
 ADDON = __name__.split(".")[0]
 
@@ -122,7 +133,35 @@ class SettingsDialog(QDialog):
         form.addRow("Default deck:", self._deck_box)
 
         self._tts_edit = QLineEdit(self._cfg.tts_lang)
+        self._tts_edit.editingFinished.connect(self._fill_voices)
         form.addRow("Audio (TTS):", self._tts_edit)
+
+        self._installed = installed_voices()
+        voice_row = QHBoxLayout()
+        # Editable so voices this computer lacks (a phone's) can be typed
+        # after a comma; picking from the list replaces the text.
+        self._voice_box = QComboBox()
+        self._voice_box.setEditable(True)
+        self._voice_box.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        self._voice_box.lineEdit().setPlaceholderText("Any voice for the language")
+        preview_button = QPushButton("▶ Preview")
+        preview_button.clicked.connect(self._preview)
+        voice_row.addWidget(self._voice_box, stretch=1)
+        voice_row.addWidget(preview_button)
+        form.addRow("Voice:", voice_row)
+
+        self._speed_box = QDoubleSpinBox()
+        self._speed_box.setRange(TTS_SPEED_MIN, TTS_SPEED_MAX)
+        self._speed_box.setSingleStep(0.1)
+        self._speed_box.setDecimals(2)
+        form.addRow("Speed:", self._speed_box)
+
+        self._voice_note = QLabel("")
+        self._voice_note.setWordWrap(True)
+        self._voice_note.setEnabled(False)
+        form.addRow("", self._voice_note)
+        self._show_voice(self._cfg)
+
         self._color_edit = QLineEdit(self._cfg.highlight_color)
         form.addRow("Highlight:", self._color_edit)
 
@@ -184,6 +223,37 @@ class SettingsDialog(QDialog):
             self._tts_edit.text(),
             self._color_edit.text(),
             self._cfg.prompt_path,
+            tts_voices=self._voice_box.currentText(),
+            tts_speed=self._speed_box.value(),
+        )
+
+    def _show_voice(self, cfg: Config) -> None:
+        self._fill_voices()
+        self._voice_box.setCurrentText(", ".join(cfg.tts_voices))
+        self._speed_box.setValue(cfg.tts_speed)
+
+    def _fill_voices(self) -> None:
+        lang = self._tts_edit.text().strip()
+        choices = voice_choices(self._installed, lang)
+        typed = self._voice_box.currentText()
+        self._voice_box.clear()
+        self._voice_box.addItems(choices)
+        # Adding items to an empty editable box selects the first one.
+        self._voice_box.setCurrentText(typed)
+        if choices:
+            where = "Lists only this computer's voices; add a phone's after a comma."
+        else:
+            where = f"No {lang or 'language'} voices found on this computer."
+        self._voice_note.setText(
+            f"{where} Blank uses the first voice for the language. "
+            "Applies the next time you create or import cards."
+        )
+
+    def _preview(self) -> None:
+        preview(
+            self._tts_edit.text().strip(),
+            voice_names(self._voice_box.currentText().split(",")),
+            self._speed_box.value(),
         )
 
     def _fetch_models(self, fill: bool) -> None:
@@ -258,6 +328,7 @@ class SettingsDialog(QDialog):
             self._show_block(self._current)
             self._deck_box.setCurrentText(self._cfg.default_deck)
             self._tts_edit.setText(self._cfg.tts_lang)
+            self._show_voice(self._cfg)
             self._color_edit.setText(self._cfg.highlight_color)
 
 

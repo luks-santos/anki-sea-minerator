@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import copy
+from collections.abc import Iterable
 
-from .config import PROVIDERS, Config, ProviderSettings
+from .config import PROVIDERS, Config, ProviderSettings, voice_names
 
 # Shown in the Advanced… JSON instead of a stored key; left untouched, it
 # means "keep the key", so the raw editor never displays secrets.
@@ -44,12 +45,17 @@ def form_to_config(
     tts_lang: str,
     highlight_color: str,
     prompt_path: str,
+    *,
+    tts_voices: str = "",
+    tts_speed: float = 1.0,
 ) -> Config:
     return Config(
         provider=provider,
         providers=dict(providers),
         default_deck=default_deck,
         tts_lang=tts_lang.strip(),
+        tts_voices=voice_names(tts_voices.split(",")),
+        tts_speed=tts_speed,
         highlight_color=highlight_color.strip(),
         prompt_path=prompt_path,
     )
@@ -86,6 +92,14 @@ def unmask_keys(edited: dict, original: dict) -> dict:
         if isinstance(block, dict) and block.get("api_key") == KEY_MASK:
             block["api_key"] = originals.get(provider_id, {}).get("api_key", "")
     return restored
+
+
+def voice_choices(installed: Iterable[tuple[str, str]], lang: str) -> list[str]:
+    """The (name, lang) voices Anki reports, narrowed to one language.
+
+    On Windows two speech engines report the same voice, so names repeat.
+    """
+    return sorted({name for name, voice_lang in installed if voice_lang == lang})
 
 
 def model_choices(models: list[str]) -> list[str]:

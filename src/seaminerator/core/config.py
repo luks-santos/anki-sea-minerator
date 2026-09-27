@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 
 
@@ -62,6 +63,17 @@ PROVIDERS: dict[str, ProviderInfo] = {
 }
 
 
+# Bounds for Anki's {{tts}} speed= option; 1.0 is the voice's normal pace.
+TTS_SPEED_MIN = 0.5
+TTS_SPEED_MAX = 2.0
+
+
+def voice_names(names: Iterable[str]) -> tuple[str, ...]:
+    # Anki names voices with underscores ("Microsoft_Zira"), and a space
+    # would end the {{tts}} tag's voices= option.
+    return tuple("_".join(name.split()) for name in names if name.strip())
+
+
 def default_providers() -> dict[str, ProviderSettings]:
     return {provider_id: info.default for provider_id, info in PROVIDERS.items()}
 
@@ -72,5 +84,8 @@ class Config:
     providers: dict[str, ProviderSettings] = field(default_factory=default_providers)
     default_deck: str = ""
     tts_lang: str = "en_US"
+    # In order of preference: {{tts}} uses the first one the device has.
+    tts_voices: tuple[str, ...] = ()
+    tts_speed: float = 1.0
     highlight_color: str = "#2563eb"
     prompt_path: str = ""

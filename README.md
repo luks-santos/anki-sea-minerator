@@ -66,6 +66,11 @@ The settings dialog also sets:
 - `default_deck` — the deck pre-selected in the wizard.
 - `tts_lang` — the language passed to Anki's `{{tts}}` tag, e.g. `en_US`.
   Changing it rewrites the note type's template, which affects existing cards.
+- `tts_voices` and `tts_speed` — the voice and speaking speed. The dialog
+  lists this computer's voices for the language, with **▶ Preview**; type a
+  phone's voice after a comma so each device uses the first one it has.
+  Like the language, they reach the note type the next time you create or
+  import cards, and then apply to existing cards too.
 - `highlight_color` — the CSS color used for the studied expression.
 Its **Advanced…** button edits the raw config, the only place for:
 
@@ -132,7 +137,9 @@ knowing before you rely on it:
 - **Voice quality and availability depend on what's installed on each
   device.** The same card can sound different — or silent — on different
   computers or phones, because it's playing through whatever local voices
-  exist there, not a bundled recording.
+  exist there, not a bundled recording. Choosing voices in the settings
+  pins them by name where they exist; a device without any of them still
+  falls back to its first voice for the language.
 - **Probably does not work on AnkiWeb.** AnkiWeb's browser-based reviewer
   does not reliably support `{{tts}}`; treat cards as desktop/mobile-app
   only if audio matters to you.

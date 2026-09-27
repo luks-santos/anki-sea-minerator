@@ -12,6 +12,22 @@ def test_tts_tag_uses_text_prefix_to_strip_html():
     assert tts_tag("en_US") == "{{tts en_US:text:Front}}"
 
 
+def test_tts_tag_lists_the_chosen_voices_in_order_and_the_speed():
+    assert (
+        tts_tag("en_US", ("Microsoft_Zira", "Apple_Samantha"), 0.9)
+        == "{{tts en_US voices=Microsoft_Zira,Apple_Samantha speed=0.9:text:Front}}"
+    )
+
+
+def test_tts_tag_leaves_out_default_options():
+    assert tts_tag("en_US", (), 1.0) == "{{tts en_US:text:Front}}"
+    assert tts_tag("en_US", (), 1.25) == "{{tts en_US speed=1.25:text:Front}}"
+    assert (
+        tts_tag("en_US", ("Microsoft_Zira",), 1.0)
+        == "{{tts en_US voices=Microsoft_Zira:text:Front}}"
+    )
+
+
 def test_ensure_notetype_creates_it_with_both_fields(col):
     ensure_notetype(col, "en_US")
 
@@ -55,6 +71,14 @@ def test_ensure_notetype_rewrites_the_template_when_the_language_changes(col):
     front = col.models.by_name(NOTE_TYPE_NAME)["tmpls"][0]["qfmt"]
     assert "{{tts pt_BR:text:Front}}" in front
     assert "en_US" not in front
+
+
+def test_ensure_notetype_rewrites_the_template_when_the_voice_changes(col):
+    ensure_notetype(col, "en_US")
+    ensure_notetype(col, "en_US", ("Microsoft_Zira",), 0.8)
+
+    front = col.models.by_name(NOTE_TYPE_NAME)["tmpls"][0]["qfmt"]
+    assert "{{tts en_US voices=Microsoft_Zira speed=0.8:text:Front}}" in front
 
 
 def test_ensure_notetype_restores_a_stripped_tts_tag(col):

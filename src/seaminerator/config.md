@@ -13,6 +13,11 @@ this JSON directly is only needed for `prompt_path`.
 - `default_deck` — deck pre-selected in the wizard. Blank means no default.
 - `tts_lang` — language passed to Anki's `{{tts}}` tag, e.g. `en_US`.
   Changing it rewrites the note type template, which affects existing cards.
+- `tts_voices` — voices for `{{tts}}` in order of preference, e.g.
+  `["Microsoft_Zira", "Apple_Samantha"]`; each device uses the first one it
+  has. Empty uses the device's first voice for the language. The settings
+  dialog lists this computer's voices and can preview them.
+- `tts_speed` — speaking speed from `0.5` to `2.0`; `1.0` is normal.
 - `highlight_color` — CSS color for the studied expression on the front.
 - `prompt_path` — path to a file overriding the built-in mining prompt.
   Blank uses the built-in prompt. The grammar class and topic rules are always
