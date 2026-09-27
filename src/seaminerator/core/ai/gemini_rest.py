@@ -121,11 +121,17 @@ class GeminiRestConnector:
     def _raise_for_status(self, response: httpx.Response) -> None:
         if response.status_code < 400:
             return
-        detail = ""
+        # The documented shape is {"error": {"message": ...}}; anything else
+        # (non-JSON, a JSON list, a bare string under "error") falls back to
+        # the raw body rather than raising AttributeError from `.get`.
+        detail = response.text[:200]
         try:
-            detail = response.json().get("error", {}).get("message", "")
+            body = response.json()
         except ValueError:
-            detail = response.text[:200]
+            body = None
+        error = body.get("error") if isinstance(body, dict) else None
+        if isinstance(error, dict) and isinstance(error.get("message"), str):
+            detail = error["message"]
         if response.status_code in (401, 403):
             raise GeminiError(f"invalid or unauthorized API key: {detail}")
         if response.status_code == 429:

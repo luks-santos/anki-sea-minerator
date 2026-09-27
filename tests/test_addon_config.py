@@ -32,3 +32,8 @@ def test_config_from_dict_ignores_unknown_keys():
 def test_config_from_dict_treats_blank_api_key_as_missing():
     assert config_from_dict({"gemini_api_key": ""}).gemini_api_key is None
     assert config_from_dict({"gemini_api_key": "  "}).gemini_api_key is None
+
+
+def test_config_from_dict_treats_a_non_string_key_as_missing():
+    assert config_from_dict({"gemini_api_key": 12345}).gemini_api_key is None
+    assert config_from_dict({"gemini_api_key": None}).gemini_api_key is None

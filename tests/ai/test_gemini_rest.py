@@ -195,3 +195,19 @@ def test_response_schema_keeps_the_prompt_field_order():
     ]
     sentence = word["items"]["properties"]["sentences"]["items"]
     assert sentence["propertyOrdering"] == ["text", "highlight", "note", "topics"]
+
+
+def test_error_body_that_is_a_json_list_raises_readable_error():
+    def handler(request):
+        return httpx.Response(500, json=["unexpected", "shape"])
+
+    with pytest.raises(GeminiError, match="Gemini API error 500"):
+        make_connector(handler).mine(["give up"], prompt="RULES")
+
+
+def test_error_body_whose_error_is_not_an_object_raises_readable_error():
+    def handler(request):
+        return httpx.Response(403, json={"error": "forbidden"})
+
+    with pytest.raises(GeminiError, match="API key"):
+        make_connector(handler).mine(["give up"], prompt="RULES")
