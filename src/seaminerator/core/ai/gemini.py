@@ -57,12 +57,15 @@ class GeminiProvider:
         # no parts at all.
         try:
             block_reason = (data.get("promptFeedback") or {}).get("blockReason")
-            candidate = None if block_reason else data["candidates"][0]
-            finish = candidate.get("finishReason") if candidate else None
-        except (KeyError, IndexError, TypeError, AttributeError) as exc:
+        except (TypeError, AttributeError) as exc:
             raise AIError(OUTSIDE_FORMAT_MESSAGE) from exc
         if block_reason:
             raise AIError(blocked_message(block_reason))
+        try:
+            candidate = data["candidates"][0]
+            finish = candidate.get("finishReason")
+        except (KeyError, IndexError, TypeError, AttributeError) as exc:
+            raise AIError(OUTSIDE_FORMAT_MESSAGE) from exc
         if finish == "MAX_TOKENS":
             raise AIError(TRUNCATED_MESSAGE)
         if finish in _BLOCKED_FINISH_REASONS:
