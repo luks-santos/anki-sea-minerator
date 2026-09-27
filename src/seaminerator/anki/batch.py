@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from ..core.config import Config
-from ..core.flow import CardResult, create_cards_for_selection
-from ..core.models import Sentence, WordBlock
+from ..core.flow import CardResult, create_cards_for_selection, create_imported_cards
+from ..core.models import ImportedCard, Sentence, WordBlock
 from .collection_client import CollectionAnkiClient
 
 UNDO_NAME = "Mine vocabulary"
+IMPORT_UNDO_NAME = "Import cards"
 
 
 def create_batch(
@@ -37,5 +38,24 @@ def create_batch(
     results: list[CardResult] = []
     for word, sentences in pairs:
         results.extend(create_cards_for_selection(word, sentences, cfg, deck, client))
+    changes = col.merge_undo_entries(target)
+    return results, changes
+
+
+def create_import_batch(
+    col,
+    cards: list[ImportedCard],
+    cfg: Config,
+    deck: str,
+    topic: str,
+) -> tuple[list[CardResult], object]:
+    """Create pasted front/back cards as one undo-batched unit.
+
+    Same undo-entry ordering as `create_batch` (open before, merge after);
+    see its docstring for why the order matters.
+    """
+    client = CollectionAnkiClient(col)
+    target = col.add_custom_undo_entry(IMPORT_UNDO_NAME)
+    results = create_imported_cards(cards, cfg, deck, client, topic)
     changes = col.merge_undo_entries(target)
     return results, changes
