@@ -1,4 +1,5 @@
 from seaminerator.core.tags import (
+    BASE_TOPICS,
     CLASS_TAGS,
     ORIGIN_TAG,
     RESERVED_TAGS,
@@ -55,18 +56,38 @@ def test_normalize_tag_can_return_empty():
     assert normalize_tag("  !!! ") == ""
 
 
-def test_topic_vocabulary_removes_classes_and_reserved_and_sorts():
-    tags = ["verb-to-be", "noun", "anki-sea-minerator", "past-simple", "leech"]
-    assert topic_vocabulary(tags) == ["past-simple", "verb-to-be"]
+def test_base_topics_are_kebab_case_and_not_classes():
+    assert "modal-verbs" in BASE_TOPICS
+    for topic in BASE_TOPICS:
+        assert topic == normalize_tag(topic)
+        assert topic not in CLASS_TAGS
+
+
+def test_topic_vocabulary_of_empty_collection_is_the_base_topics():
+    assert topic_vocabulary([]) == sorted(BASE_TOPICS)
+
+
+def test_topic_vocabulary_adds_collection_topics_to_the_base():
+    assert "used-to" in topic_vocabulary(["used-to"])
+
+
+def test_topic_vocabulary_removes_classes_and_reserved():
+    tags = ["noun", "anki-sea-minerator", "leech", "used-to"]
+    vocabulary = topic_vocabulary(tags)
+    assert "noun" not in vocabulary
+    assert "anki-sea-minerator" not in vocabulary
+    assert "leech" not in vocabulary
 
 
 def test_topic_vocabulary_is_case_insensitive():
-    tags = ["Noun", "LEECH", "Marked", "have-got"]
-    assert topic_vocabulary(tags) == ["have-got"]
+    vocabulary = topic_vocabulary(["Noun", "LEECH", "Marked"])
+    assert vocabulary == sorted(BASE_TOPICS)
 
 
-def test_topic_vocabulary_of_empty_collection_is_empty():
-    assert topic_vocabulary([]) == []
+def test_topic_vocabulary_keeps_the_collection_spelling_of_a_base_topic():
+    vocabulary = topic_vocabulary(["Past-Simple"])
+    assert "Past-Simple" in vocabulary
+    assert "past-simple" not in vocabulary
 
 
 def test_class_label_is_readable():

@@ -37,11 +37,35 @@ def normalize_tag(raw: str) -> str:
     return tag.strip("-:")
 
 
+# Topics offered to Gemini even when the collection has no tags, so the model
+# reuses one name per structure instead of coining a new variant every run.
+BASE_TOPICS: tuple[str, ...] = (
+    "present-simple",
+    "present-continuous",
+    "present-perfect",
+    "past-simple",
+    "past-continuous",
+    "future-simple",
+    "verb-to-be",
+    "have-got",
+    "modal-verbs",
+    "conditionals",
+    "passive-voice",
+    "imperative",
+    "infinitive",
+    "gerund",
+)
+
+
 def topic_vocabulary(all_tags: list[str]) -> list[str]:
     excluded = set(CLASS_TAGS) | RESERVED_TAGS
-    return sorted(
-        (tag for tag in all_tags if tag.lower() not in excluded), key=str.lower
-    )
+    # Keyed by lowercase so a collection tag like `Past-Simple` replaces the
+    # base `past-simple` instead of sitting next to it.
+    topics = {topic: topic for topic in BASE_TOPICS}
+    for tag in all_tags:
+        if tag.lower() not in excluded:
+            topics[tag.lower()] = tag
+    return sorted(topics.values(), key=str.lower)
 
 
 def class_label(tag: str) -> str:
