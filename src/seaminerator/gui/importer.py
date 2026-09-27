@@ -8,22 +8,21 @@ from aqt.qt import (
     QFormLayout,
     QHBoxLayout,
     QLabel,
+    QMessageBox,
     QPushButton,
     Qt,
     QTextEdit,
     QVBoxLayout,
     QWidget,
 )
-from aqt.utils import showInfo, showWarning
+from aqt.utils import showWarning
 
-from ..addon_config import config_from_dict
+from ..addon_config import display_config
 from ..anki.batch import create_import_batch
 from ..anki.collection_client import CollectionAnkiClient
 from ..anki.notetype import NOTE_TYPE_NAME, ensure_notetype
-from ..core.config import Config, ConfigError
-from ..core.flow import CardResult
-from ..core.models import ImportedCard, parse_imported_text
-from ..core.session import summarize
+from ..core.flow import CardResult, ImportPlan, prepare_import
+from ..core.session import failure_lines, import_status, summarize
 from ..core.tags import BASE_TOPICS
 
 ADDON = __name__.split(".")[0]
@@ -48,13 +47,10 @@ class ImportDialog(QDialog):
         self.setWindowTitle("Import cards")
         self.resize(640, 520)
 
-        try:
-            config = config_from_dict(mw.addonManager.getConfig(ADDON) or {})
-        except ConfigError:
-            # Importing needs no AI provider; only deck, audio and colors.
-            config = Config()
-        self._cfg = config
-        self._cards: list[ImportedCard] = []
+        # Importing needs no AI provider, only deck and audio settings, which
+        # display_config keeps even when the provider part is broken.
+        self._cfg = display_config(mw.addonManager.getConfig(ADDON) or {})
+        self._plan = ImportPlan(cards=[], warnings=[], topic="")
         self._results: list[CardResult] = []
         self._creating = False
         self._closed = False
@@ -76,6 +72,8 @@ class ImportDialog(QDialog):
         self._topic_box.setEditable(True)
         self._topic_box.addItems([""] + list(BASE_TOPICS))
         self._topic_box.setCurrentText("")
+        # The topic is validated too (e.g. "???" normalizes to nothing).
+        self._topic_box.currentTextChanged.connect(self._refresh)
         form.addRow("Topic:", self._topic_box)
 
         self._deck_box = QComboBox(self)
@@ -91,18 +89,25 @@ class ImportDialog(QDialog):
         self._status.setWordWrap(True)
         self._status.setTextFormat(Qt.TextFormat.PlainText)
         footer.addWidget(self._status, stretch=1)
-        cancel = QPushButton("Cancel", self)
-        cancel.clicked.connect(self.reject)
-        footer.addWidget(cancel)
+        self._cancel_button = QPushButton("Cancel", self)
+        self._cancel_button.clicked.connect(self.reject)
+        footer.addWidget(self._cancel_button)
         self._create_button = QPushButton("Create cards", self)
         self._create_button.clicked.connect(self._create)
         footer.addWidget(self._create_button)
         # Enter belongs to the text box and the topic field, never to a button.
-        for button in (cancel, self._create_button):
+        for button in (self._cancel_button, self._create_button):
             button.setAutoDefault(False)
         layout.addLayout(footer)
 
         self._refresh()
+
+    def reject(self) -> None:
+        # Cancel, Esc and the title-bar X all land here. While the cards are
+        # being created, closing would hide the summary of what was created.
+        if self._creating:
+            return
+        super().reject()
 
     def done(self, result: int) -> None:
         # A creation op still running checks this before touching widgets.
@@ -110,15 +115,15 @@ class ImportDialog(QDialog):
         super().done(result)
 
     def _refresh(self) -> None:
-        self._cards, warnings = parse_imported_text(self._text.toPlainText())
-        status = f"{len(self._cards)} card(s) ready"
-        if warnings:
-            status += f" · {len(warnings)} block(s) skipped:\n" + "\n".join(warnings)
-        self._status.setText(status)
-        self._create_button.setEnabled(bool(self._cards) and not self._creating)
+        self._plan = prepare_import(
+            self._text.toPlainText(), self._topic_box.currentText()
+        )
+        self._status.setText(import_status(len(self._plan.cards), self._plan.warnings))
+        self._create_button.setEnabled(bool(self._plan.cards) and not self._creating)
+        self._cancel_button.setEnabled(not self._creating)
 
     def _create(self) -> None:
-        if not self._cards:
+        if not self._plan.cards:
             return
         deck = self._deck_box.currentText()
         if not deck:
@@ -134,8 +139,8 @@ class ImportDialog(QDialog):
             )
             return
 
-        cards = list(self._cards)
-        topic = self._topic_box.currentText()
+        cards = list(self._plan.cards)
+        topic = self._plan.topic
 
         def op(col):
             results, changes = create_import_batch(col, cards, self._cfg, deck, topic)
@@ -153,10 +158,17 @@ class ImportDialog(QDialog):
             return
         self._creating = False
         summary = summarize(self._results, 0.0)
-        message = f"{summary.created} card(s) created."
+        box = QMessageBox(self)
+        box.setWindowTitle("Import cards")
+        box.setTextFormat(Qt.TextFormat.PlainText)
+        text = f"{summary.created} card(s) created."
         if summary.failed:
-            message += f" {summary.failed} failed:\n\n" + "\n".join(summary.warnings)
-        showInfo(message, parent=self, textFormat="plain")
+            text += f" {summary.failed} failed (see details)."
+            # Details are a scrollable area, so hundreds of failures never
+            # push the OK button off-screen; each line names its card.
+            box.setDetailedText("\n".join(failure_lines(self._results)))
+        box.setText(text)
+        box.exec()
         self.accept()
 
     def _on_failed(self, exc: Exception) -> None:

@@ -109,7 +109,10 @@ Pick a topic (e.g. `present perfect`) and a deck, then **Create cards**.
 - The back gets the topic in parentheses: `Eu acabei de chegar. (present-perfect)`.
 - A leading `[Label]` on the front is still shown on the card, but the audio
   reads only the sentence.
-- Blocks without exactly two lines are skipped and listed.
+- Blocks without exactly two lines, and fronts that are only a `[Label]`, are
+  skipped and listed.
+- A card whose sentence already exists on a Sea Minerator card is rejected
+  as a duplicate, whatever its label, since it would say the same thing.
 - The whole import is one undo step (`Edit → Undo Import cards`).
 
 ## Audio: what `{{tts}}` can and can't do
