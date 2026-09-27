@@ -7,9 +7,14 @@ from .base import (
     TRUNCATED_MESSAGE,
     AIError,
     MiningRequest,
+    blocked_message,
     parse_json_object,
 )
 from .http import request_json
+
+_BLOCKED_FINISH_REASONS = frozenset(
+    {"SAFETY", "RECITATION", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII"}
+)
 
 
 class GeminiProvider:
@@ -47,14 +52,25 @@ class GeminiProvider:
             headers=self._headers,
             body=body,
         )
+        # Check why generation stopped before reading the text: a blocked
+        # prompt has no candidates, and a truncated or blocked answer may have
+        # no parts at all.
         try:
-            candidate = data["candidates"][0]
-            truncated = candidate.get("finishReason") == "MAX_TOKENS"
-            text = candidate["content"]["parts"][0]["text"]
+            block_reason = (data.get("promptFeedback") or {}).get("blockReason")
+            candidate = None if block_reason else data["candidates"][0]
+            finish = candidate.get("finishReason") if candidate else None
         except (KeyError, IndexError, TypeError, AttributeError) as exc:
             raise AIError(OUTSIDE_FORMAT_MESSAGE) from exc
-        if truncated:
+        if block_reason:
+            raise AIError(blocked_message(block_reason))
+        if finish == "MAX_TOKENS":
             raise AIError(TRUNCATED_MESSAGE)
+        if finish in _BLOCKED_FINISH_REASONS:
+            raise AIError(blocked_message(finish))
+        try:
+            text = candidate["content"]["parts"][0]["text"]
+        except (KeyError, IndexError, TypeError) as exc:
+            raise AIError(OUTSIDE_FORMAT_MESSAGE) from exc
         return parse_json_object(text)
 
     def list_models(self) -> list[str]:

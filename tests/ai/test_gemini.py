@@ -1,8 +1,9 @@
 import json
 
 import httpx
+import pytest
 
-from seaminerator.core.ai.base import MiningRequest
+from seaminerator.core.ai.base import AIError, MiningRequest
 from seaminerator.core.ai.gemini import GeminiProvider
 from seaminerator.core.ai.schema import mining_schema
 
@@ -49,3 +50,30 @@ def test_list_models_asks_for_a_large_page():
 
     assert seen["method"] == "GET"
     assert seen["url"] == f"{BASE}/models?pageSize=1000"
+
+
+def mine_with(response):
+    _, transport = capture(response)
+    request = MiningRequest(text="RULES", schema=mining_schema())
+    return GeminiProvider("secret", "m", BASE, transport).mine(request)
+
+
+def test_blocked_prompt_is_reported_as_blocked():
+    response = httpx.Response(200, json={"promptFeedback": {"blockReason": "SAFETY"}})
+    with pytest.raises(AIError, match=r"refused or blocked the request \(SAFETY\)"):
+        mine_with(response)
+
+
+def test_safety_finish_without_content_is_reported_as_blocked():
+    response = httpx.Response(200, json={"candidates": [{"finishReason": "SAFETY"}]})
+    with pytest.raises(AIError, match=r"refused or blocked the request \(SAFETY\)"):
+        mine_with(response)
+
+
+def test_max_tokens_without_parts_is_reported_as_truncated():
+    response = httpx.Response(
+        200,
+        json={"candidates": [{"finishReason": "MAX_TOKENS", "content": {}}]},
+    )
+    with pytest.raises(AIError, match="cut off by the model's output limit"):
+        mine_with(response)

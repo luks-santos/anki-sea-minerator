@@ -1,9 +1,10 @@
 import json
 
 import httpx
+import pytest
 
 from seaminerator.core.ai.anthropic import AnthropicProvider
-from seaminerator.core.ai.base import MiningRequest
+from seaminerator.core.ai.base import AIError, MiningRequest
 from seaminerator.core.ai.schema import mining_schema
 
 REQUEST = MiningRequest(text="RULES", schema=mining_schema())
@@ -45,7 +46,7 @@ def test_mine_forces_the_schema_as_a_tool():
     assert seen["version"] == "2023-06-01"
     body = seen["body"]
     assert body["model"] == "claude-haiku-4-5-20251001"
-    assert body["max_tokens"] == 8192
+    assert body["max_tokens"] == 16384
     assert body["messages"] == [{"role": "user", "content": "RULES"}]
     assert body["tools"][0]["name"] == "record_mining"
     assert body["tools"][0]["input_schema"] == mining_schema()
@@ -71,3 +72,11 @@ def test_list_models_gets_the_models_endpoint():
     assert provider(transport).list_models() == []
     assert seen["method"] == "GET"
     assert seen["url"] == "https://api.anthropic.com/v1/models?limit=1000"
+
+
+def test_refusal_stop_reason_is_reported_as_refused():
+    _, transport = capture(
+        httpx.Response(200, json={"content": [], "stop_reason": "refusal"})
+    )
+    with pytest.raises(AIError, match=r"refused or blocked the request \(refusal\)"):
+        provider(transport).mine(REQUEST)

@@ -2,13 +2,16 @@ import dataclasses
 import json
 from pathlib import Path
 
+import httpx
 import pytest
 
 from seaminerator.addon_config import config_from_dict
 from seaminerator.core.ai.anthropic import AnthropicProvider
+from seaminerator.core.ai.base import AIError, MiningRequest
 from seaminerator.core.ai.gemini import GeminiProvider
 from seaminerator.core.ai.openai_compat import OpenAICompatProvider
 from seaminerator.core.ai.registry import build_provider
+from seaminerator.core.ai.schema import mining_schema
 from seaminerator.core.config import Config, ConfigError, ProviderSettings
 
 SHIPPED = Path(__file__).parent.parent.parent / "src" / "seaminerator" / "config.json"
@@ -70,3 +73,15 @@ def test_legacy_merged_config_reads_and_then_needs_a_key():
     )
     with pytest.raises(ConfigError, match="API key"):
         build_provider(cfg)
+
+
+def test_local_provider_explains_a_rejected_structured_output_request():
+    def handler(request):
+        return httpx.Response(400, json={"error": {"message": "bad format"}})
+
+    provider = build_provider(
+        config("local", api_key=None), transport=httpx.MockTransport(handler)
+    )
+
+    with pytest.raises(AIError, match="update Ollama or LM Studio"):
+        provider.mine(MiningRequest(text="RULES", schema=mining_schema()))

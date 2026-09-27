@@ -2,11 +2,19 @@ from __future__ import annotations
 
 import httpx
 
-from .base import OUTSIDE_FORMAT_MESSAGE, TRUNCATED_MESSAGE, AIError, MiningRequest
+from .base import (
+    OUTSIDE_FORMAT_MESSAGE,
+    TRUNCATED_MESSAGE,
+    AIError,
+    MiningRequest,
+    blocked_message,
+)
 from .http import request_json
 
 ANTHROPIC_VERSION = "2023-06-01"
-MAX_TOKENS = 8192
+# Enough for a long list of the day on every Claude 4.x model; a legacy
+# model with a lower output cap answers 400 with a readable message.
+MAX_TOKENS = 16384
 TOOL_NAME = "record_mining"
 
 
@@ -57,15 +65,17 @@ class AnthropicProvider:
             body=body,
         )
         try:
-            truncated = data.get("stop_reason") == "max_tokens"
+            stop_reason = data.get("stop_reason")
             blocks = data["content"]
             tool_input = next(
                 (b["input"] for b in blocks if b.get("type") == "tool_use"), None
             )
         except (KeyError, TypeError, AttributeError) as exc:
             raise AIError(OUTSIDE_FORMAT_MESSAGE) from exc
-        if truncated:
+        if stop_reason == "max_tokens":
             raise AIError(TRUNCATED_MESSAGE)
+        if stop_reason == "refusal":
+            raise AIError(blocked_message(stop_reason))
         if not isinstance(tool_input, dict):
             raise AIError(OUTSIDE_FORMAT_MESSAGE)
         return tool_input

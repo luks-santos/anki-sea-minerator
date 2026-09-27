@@ -20,6 +20,10 @@ class AIError(Exception):
     pass
 
 
+def blocked_message(reason: str) -> str:
+    return f"the model refused or blocked the request ({reason})"
+
+
 @dataclass(frozen=True)
 class MiningRequest:
     text: str

@@ -85,3 +85,29 @@ def test_list_models_gets_the_models_endpoint():
     assert provider(transport).list_models() == []
     assert seen["method"] == "GET"
     assert seen["url"] == "https://api.openai.com/v1/models"
+
+
+def test_content_filter_is_reported_as_blocked():
+    _, transport = capture(completion({"content": None}, "content_filter"))
+
+    with pytest.raises(
+        AIError, match=r"refused or blocked the request \(content_filter\)"
+    ):
+        provider(transport).mine(REQUEST)
+
+
+def test_rejected_request_carries_the_unsupported_hint():
+    _, transport = capture(
+        httpx.Response(400, json={"error": {"message": "unknown response_format"}})
+    )
+    local = OpenAICompatProvider(
+        "Local",
+        None,
+        "llama",
+        "http://localhost:11434/v1",
+        transport,
+        unsupported_hint="update the server",
+    )
+
+    with pytest.raises(AIError, match="unknown response_format; update the server"):
+        local.mine(REQUEST)

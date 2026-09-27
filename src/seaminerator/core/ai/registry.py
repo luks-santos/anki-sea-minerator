@@ -38,4 +38,11 @@ def build_provider(
         settings.base_url,
         transport,
         info.timeout,
+        unsupported_hint=_LOCAL_HINT if config.provider == "local" else None,
     )
+
+
+_LOCAL_HINT = (
+    "the local server may not support json_schema structured outputs; "
+    "update Ollama or LM Studio, or pick a model that supports them"
+)
