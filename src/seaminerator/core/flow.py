@@ -1,15 +1,20 @@
 from __future__ import annotations
 
+import html
+import re
 from dataclasses import dataclass
 
 from .cards import build_back, highlight_html
 from .config import Config
 from .models import ImportedCard, Sentence, WordBlock
-from .tags import ORIGIN_TAG
+from .tags import ORIGIN_TAG, normalize_tag
 
 NOTE_TYPE_NAME = "Sea Minerator"
 FRONT_FIELD = "Front"
 BACK_FIELD = "Back"
+LABEL_CLASS = "sm-label"
+
+_LABEL_PREFIX = re.compile(r"^\s*\[([^\[\]]+)\]\s*(.*)$", re.DOTALL)
 
 
 @dataclass
@@ -60,13 +65,30 @@ def create_cards_for_selection(
     return [create_card(word, s, cfg, deck, anki) for s in selected]
 
 
+def imported_front(front: str) -> str:
+    # A leading "[Grammar]" becomes an empty span the note type's CSS draws
+    # as "[Grammar] ": it stays visible on the card but is not in the field's
+    # text, so the {{tts}} audio reads only the sentence.
+    match = _LABEL_PREFIX.match(front)
+    if not match:
+        return front
+    label = html.escape(match.group(1), quote=True)
+    return f'<span class="{LABEL_CLASS}" data-label="{label}"></span>{match.group(2)}'
+
+
+def imported_back(back: str, topic: str) -> str:
+    tag = normalize_tag(topic)
+    return f"{back} ({tag})" if tag else back
+
+
 def create_imported_card(
-    card: ImportedCard, cfg: Config, deck: str, anki
+    card: ImportedCard, cfg: Config, deck: str, anki, topic: str = ""
 ) -> CardResult:
-    return _add(card.front, card.front, card.back, deck, anki, [])
+    front = imported_front(card.front)
+    return _add(card.front, front, imported_back(card.back, topic), deck, anki, [])
 
 
 def create_imported_cards(
-    cards: list[ImportedCard], cfg: Config, deck: str, anki
+    cards: list[ImportedCard], cfg: Config, deck: str, anki, topic: str = ""
 ) -> list[CardResult]:
-    return [create_imported_card(c, cfg, deck, anki) for c in cards]
+    return [create_imported_card(c, cfg, deck, anki, topic) for c in cards]

@@ -4,6 +4,8 @@ from seaminerator.core.flow import (
     create_cards_for_selection,
     create_imported_card,
     create_imported_cards,
+    imported_back,
+    imported_front,
 )
 from seaminerator.core.models import ImportedCard, Sentence, WordBlock
 
@@ -119,19 +121,52 @@ def test_create_cards_for_selection_maps_over_sentences():
     assert all(r.created for r in results)
 
 
-def test_create_imported_card_keeps_bracket_tag_on_front():
+def test_create_imported_card_turns_the_prefix_into_a_label_and_adds_the_topic():
     anki = FakeAnki()
     card = ImportedCard(
         front="[Grammar] We had a bad day.", back="Nós tivemos um dia ruim."
     )
 
-    result = create_imported_card(card, Config(), "English", anki)
+    result = create_imported_card(card, Config(), "English", anki, topic="Past Simple")
 
     assert result.created is True
     note = anki.notes[0]
-    assert note["fields"]["Front"] == "[Grammar] We had a bad day."
-    assert note["fields"]["Back"] == "Nós tivemos um dia ruim."
+    assert note["fields"]["Front"] == (
+        '<span class="sm-label" data-label="Grammar"></span>We had a bad day.'
+    )
+    assert note["fields"]["Back"] == "Nós tivemos um dia ruim. (past-simple)"
     assert note["tags"] == ["anki-sea-minerator"]
+
+
+def test_create_imported_card_without_topic_keeps_the_back():
+    anki = FakeAnki()
+    card = ImportedCard(front="Plain.", back="Simples.")
+
+    create_imported_card(card, Config(), "English", anki)
+
+    assert anki.notes[0]["fields"] == {"Front": "Plain.", "Back": "Simples."}
+
+
+def test_imported_front_converts_only_a_leading_bracket_prefix():
+    assert imported_front("[Grammar] I've just arrived.") == (
+        '<span class="sm-label" data-label="Grammar"></span>I\'ve just arrived.'
+    )
+    assert imported_front("He said [sic] hi.") == "He said [sic] hi."
+    assert imported_front("No prefix.") == "No prefix."
+
+
+def test_imported_front_escapes_the_label():
+    assert imported_front('[A&"B] x') == (
+        '<span class="sm-label" data-label="A&amp;&quot;B"></span>x'
+    )
+
+
+def test_imported_back_appends_the_normalized_topic():
+    assert imported_back("Eu acabei de chegar.", "present perfect") == (
+        "Eu acabei de chegar. (present-perfect)"
+    )
+    assert imported_back("Eu acabei de chegar.", "  ") == "Eu acabei de chegar."
+    assert imported_back("Eu acabei de chegar.", "") == "Eu acabei de chegar."
 
 
 def test_create_imported_cards_maps_over_list():
