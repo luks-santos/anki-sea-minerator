@@ -21,6 +21,12 @@ def request_json(
     # try/except blocks that turn a shape mismatch into AIError.
     try:
         response = client.request(method, url, headers=headers, json=body)
+    except httpx.TimeoutException as exc:
+        # The server was reached (and may bill the tokens); it was just slow.
+        raise AIError(
+            f"{provider} did not answer in time; mine fewer words at a time "
+            "or pick a faster model"
+        ) from exc
     except httpx.HTTPError as exc:
         raise AIError(
             f"could not connect to {base_url}; for a local provider, check that "

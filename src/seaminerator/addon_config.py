@@ -18,8 +18,14 @@ def config_from_dict(data: dict) -> Config:
         raise ConfigError("the config has no 'providers' block")
 
     providers: dict[str, ProviderSettings] = {}
-    for provider_id in PROVIDERS:
+    for provider_id, info in PROVIDERS.items():
         block = blocks.get(provider_id)
+        if block is None:
+            # A stored `providers` block replaces the shipped one wholesale
+            # (Anki merges only top-level keys), so a provider added in a
+            # later version is missing here; use its defaults.
+            providers[provider_id] = info.default
+            continue
         if not isinstance(block, dict):
             raise ConfigError(f"the config has no settings for {provider_id!r}")
         model, base_url = block.get("model"), block.get("base_url")

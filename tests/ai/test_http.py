@@ -97,3 +97,12 @@ def test_non_json_success_body():
 
     with pytest.raises(AIError, match="outside the expected format"):
         call(handler)
+
+
+def test_timeout_is_not_reported_as_a_connection_problem():
+    def handler(request):
+        raise httpx.ReadTimeout("slow")
+
+    with pytest.raises(AIError, match="Acme did not answer in time") as info:
+        call(handler)
+    assert "could not connect" not in str(info.value)

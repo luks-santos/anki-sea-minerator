@@ -58,9 +58,23 @@ def test_missing_providers_block_is_a_config_error():
         config_from_dict(data)
 
 
-def test_missing_provider_entry_is_a_config_error():
+def test_missing_provider_entry_is_filled_from_its_defaults():
+    # A stored `providers` block replaces the shipped one wholesale (Anki
+    # merges only top-level keys), so a provider added in a later version is
+    # missing from every existing user's config and must not wipe it.
     data = shipped()
+    data["providers"]["gemini"]["api_key"] = "kept"
     del data["providers"]["anthropic"]
+
+    cfg = config_from_dict(data)
+
+    assert cfg.providers["anthropic"] == Config().providers["anthropic"]
+    assert cfg.providers["gemini"].api_key == "kept"
+
+
+def test_malformed_provider_entry_is_a_config_error():
+    data = shipped()
+    data["providers"]["anthropic"] = "not a block"
     with pytest.raises(ConfigError, match="anthropic"):
         config_from_dict(data)
 
