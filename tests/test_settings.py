@@ -8,6 +8,7 @@ from seaminerator.core.settings import (
     unmask_keys,
     validate,
     visible_fields,
+    voice_choices,
 )
 
 
@@ -112,3 +113,33 @@ def test_unmask_keys_passes_a_malformed_providers_value_through():
     # config_from_dict then reports it; unmasking must not crash first.
     edited = {"provider": "gemini", "providers": "oops"}
     assert unmask_keys(edited, advanced_data()) == edited
+
+
+def test_form_to_config_reads_comma_separated_voices_and_the_speed():
+    cfg = form_to_config(
+        "gemini",
+        default_providers(),
+        "",
+        "en_US",
+        "#2563eb",
+        "",
+        tts_voices=" Microsoft_Zira, ,Apple_Samantha,",
+        tts_speed=0.9,
+    )
+    assert cfg.tts_voices == ("Microsoft_Zira", "Apple_Samantha")
+    assert cfg.tts_speed == 0.9
+
+
+def test_voice_choices_lists_each_voice_of_the_language_once_sorted():
+    # SAPI and WinRT both report David and Zira on Windows.
+    installed = [
+        ("Microsoft_Zira", "en_US"),
+        ("Microsoft_David", "en_US"),
+        ("Microsoft_Hazel", "en_GB"),
+        ("Microsoft_David", "en_US"),
+    ]
+    assert voice_choices(installed, "en_US") == ["Microsoft_David", "Microsoft_Zira"]
+
+
+def test_voice_choices_is_empty_without_voices_for_the_language():
+    assert voice_choices([("Microsoft_Zira", "en_US")], "pt_BR") == []

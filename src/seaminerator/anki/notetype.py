@@ -21,24 +21,33 @@ BACK_TEMPLATE = "{{FrontSide}}\n\n<hr id=answer>\n\n{{Back}}"
 LABEL_CSS = f'.{LABEL_CLASS}::before {{ content: "[" attr(data-label) "] "; }}'
 
 
-def tts_tag(lang: str) -> str:
-    return f"{{{{tts {lang}:text:{FRONT_FIELD}}}}}"
+def tts_tag(lang: str, voices: tuple[str, ...] = (), speed: float = 1.0) -> str:
+    # Default options are left out, so a note type made before voices could
+    # be chosen isn't rewritten until the user actually picks one.
+    options = [lang]
+    if voices:
+        options.append(f"voices={','.join(voices)}")
+    if speed != 1.0:
+        options.append(f"speed={speed:g}")
+    return f"{{{{tts {' '.join(options)}:text:{FRONT_FIELD}}}}}"
 
 
-def front_template(lang: str) -> str:
-    return f"{{{{{FRONT_FIELD}}}}}\n\n{tts_tag(lang)}"
+def front_template(lang: str, voices: tuple[str, ...] = (), speed: float = 1.0) -> str:
+    return f"{{{{{FRONT_FIELD}}}}}\n\n{tts_tag(lang, voices, speed)}"
 
 
-def ensure_notetype(col, lang: str) -> int:
+def ensure_notetype(
+    col, lang: str, voices: tuple[str, ...] = (), speed: float = 1.0
+) -> int:
+    wanted_front = front_template(lang, voices, speed)
     model = col.models.by_name(NOTE_TYPE_NAME)
     if model is None:
-        model = _create(col, lang)
+        model = _create(col, wanted_front)
         return model["id"]
 
     if _repair_fields(col, model):
         col.models.save(model)
 
-    wanted_front = front_template(lang)
     template = model["tmpls"][0]
     if template["qfmt"] != wanted_front or template["afmt"] != BACK_TEMPLATE:
         template["qfmt"] = wanted_front
@@ -79,12 +88,12 @@ def _repair_fields(col, model: dict) -> bool:
     return changed
 
 
-def _create(col, lang: str) -> dict:
+def _create(col, front: str) -> dict:
     model = col.models.new(NOTE_TYPE_NAME)
     for name in (FRONT_FIELD, BACK_FIELD):
         col.models.add_field(model, col.models.new_field(name))
     template = col.models.new_template(TEMPLATE_NAME)
-    template["qfmt"] = front_template(lang)
+    template["qfmt"] = front
     template["afmt"] = BACK_TEMPLATE
     col.models.add_template(model, template)
     _add_label_css(model)

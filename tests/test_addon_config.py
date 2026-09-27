@@ -130,3 +130,73 @@ def test_display_config_reads_a_valid_config_normally():
     data = shipped()
     data["providers"]["gemini"]["api_key"] = "k"
     assert display_config(data) == config_from_dict(data)
+
+
+def test_reads_the_chosen_voices_and_speed():
+    data = shipped()
+    data["tts_voices"] = [" Microsoft_Zira", "", "Apple_Samantha"]
+    data["tts_speed"] = 0.8
+
+    cfg = config_from_dict(data)
+
+    assert cfg.tts_voices == ("Microsoft_Zira", "Apple_Samantha")
+    assert cfg.tts_speed == 0.8
+
+
+def test_a_whole_number_speed_is_accepted():
+    data = shipped()
+    data["tts_speed"] = 2
+    assert config_from_dict(data).tts_speed == 2.0
+
+
+def test_missing_voice_settings_use_the_defaults():
+    # Configs saved before voices existed lack both keys.
+    data = shipped()
+    del data["tts_voices"], data["tts_speed"]
+    assert config_from_dict(data) == Config()
+
+
+@pytest.mark.parametrize("voices", ["Microsoft_Zira", ["ok", 5], None])
+def test_voices_that_are_not_a_list_of_text_are_a_config_error(voices):
+    data = shipped()
+    data["tts_voices"] = voices
+    with pytest.raises(ConfigError, match="tts_voices"):
+        config_from_dict(data)
+
+
+@pytest.mark.parametrize("speed", ["1.0", True, 0.4, 2.1, None])
+def test_speed_outside_the_range_or_not_a_number_is_a_config_error(speed):
+    data = shipped()
+    data["tts_speed"] = speed
+    with pytest.raises(ConfigError, match="tts_speed"):
+        config_from_dict(data)
+
+
+def test_config_to_dict_round_trips_the_voice_settings():
+    data = shipped()
+    data["tts_voices"] = ["Microsoft_Zira"]
+    data["tts_speed"] = 1.5
+    cfg = config_from_dict(data)
+
+    written = config_to_dict(cfg)
+
+    assert written["tts_voices"] == ["Microsoft_Zira"]
+    assert config_from_dict(written) == cfg
+
+
+def test_display_config_keeps_the_voice_settings_of_a_broken_config():
+    data = shipped()
+    data["provider"] = "nope"
+    data["tts_voices"] = ["Microsoft_Zira"]
+    data["tts_speed"] = 0.7
+
+    cfg = display_config(data)
+
+    assert cfg.tts_voices == ("Microsoft_Zira",)
+    assert cfg.tts_speed == 0.7
+
+
+def test_display_config_drops_invalid_voice_settings_of_a_broken_config():
+    cfg = display_config({"tts_voices": "x", "tts_speed": 9})
+    assert cfg.tts_voices == ()
+    assert cfg.tts_speed == 1.0

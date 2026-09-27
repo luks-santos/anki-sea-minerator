@@ -1,6 +1,14 @@
 from __future__ import annotations
 
-from .core.config import PROVIDERS, Config, ConfigError, ProviderSettings
+from .core.config import (
+    PROVIDERS,
+    TTS_SPEED_MAX,
+    TTS_SPEED_MIN,
+    Config,
+    ConfigError,
+    ProviderSettings,
+    voice_names,
+)
 
 _TOP_LEVEL_STRINGS = ("default_deck", "tts_lang", "highlight_color", "prompt_path")
 
@@ -43,14 +51,40 @@ def config_from_dict(data: dict) -> Config:
             raise ConfigError(f"{name!r} must be text")
         values[name] = value
 
-    return Config(provider=provider, providers=providers, **values)
+    voices, speed = _voice(data)
+    return Config(
+        provider=provider,
+        providers=providers,
+        tts_voices=voices,
+        tts_speed=speed,
+        **values,
+    )
+
+
+def _voice(data: dict) -> tuple[tuple[str, ...], float]:
+    voices = data.get("tts_voices", [])
+    if not isinstance(voices, list) or not all(isinstance(v, str) for v in voices):
+        raise ConfigError("'tts_voices' must be a list of voice names")
+
+    speed = data.get("tts_speed", Config().tts_speed)
+    # bool is an int in Python; `true` in the JSON is not a speed.
+    if (
+        isinstance(speed, bool)
+        or not isinstance(speed, (int, float))
+        or not TTS_SPEED_MIN <= speed <= TTS_SPEED_MAX
+    ):
+        raise ConfigError(
+            f"'tts_speed' must be a number from {TTS_SPEED_MIN} to {TTS_SPEED_MAX}"
+        )
+    return voice_names(voices), float(speed)
 
 
 def display_config(data: dict) -> Config:
     """The config for screens that don't need a working AI provider.
 
-    A broken provider block must not reset tts_lang or default_deck to
-    defaults: importing would then rewrite the note type's audio language.
+    A broken provider block must not reset tts_lang, the voice or
+    default_deck to defaults: importing would then rewrite the note type's
+    audio.
     """
     try:
         return config_from_dict(data)
@@ -60,7 +94,11 @@ def display_config(data: dict) -> Config:
             for name in _TOP_LEVEL_STRINGS
             if isinstance(data.get(name), str)
         }
-        return Config(**values)
+        try:
+            voices, speed = _voice(data)
+        except ConfigError:
+            voices, speed = Config().tts_voices, Config().tts_speed
+        return Config(tts_voices=voices, tts_speed=speed, **values)
 
 
 def config_to_dict(config: Config) -> dict:
@@ -76,6 +114,8 @@ def config_to_dict(config: Config) -> dict:
         },
         "default_deck": config.default_deck,
         "tts_lang": config.tts_lang,
+        "tts_voices": list(config.tts_voices),
+        "tts_speed": config.tts_speed,
         "highlight_color": config.highlight_color,
         "prompt_path": config.prompt_path,
     }
