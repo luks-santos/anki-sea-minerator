@@ -4,7 +4,9 @@ from seaminerator.core.session import (
     apply_class_overrides,
     count_selected,
     default_selection,
+    failure_lines,
     format_elapsed,
+    import_status,
     parse_word_list,
     selected_sentences,
     sentence_details,
@@ -179,3 +181,31 @@ def test_sentence_details_with_only_topics():
 
 def test_sentence_details_is_empty_without_note_or_topics():
     assert sentence_details(Sentence(text="x", highlight="x")) == ""
+
+
+def test_import_status_counts_cards_and_lists_a_few_warnings():
+    warnings = [f"block {i} skipped" for i in range(1, 9)]
+    assert import_status(3, warnings) == (
+        "3 card(s) ready · 8 problem(s):\n"
+        "block 1 skipped\nblock 2 skipped\nblock 3 skipped\n"
+        "block 4 skipped\nblock 5 skipped\n…and 3 more"
+    )
+
+
+def test_import_status_without_warnings():
+    assert import_status(11, []) == "11 card(s) ready"
+
+
+def test_failure_lines_name_each_failed_card():
+    results = [
+        CardResult(expression="I arrived.", front="x", created=True, note_id=1),
+        CardResult(
+            expression="Have you seen him?",
+            front="x",
+            created=False,
+            warning="card not created: duplicate",
+        ),
+    ]
+    assert failure_lines(results) == [
+        "Have you seen him? — card not created: duplicate"
+    ]

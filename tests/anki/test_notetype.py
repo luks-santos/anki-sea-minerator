@@ -1,6 +1,7 @@
 from seaminerator.anki.notetype import (
     BACK_FIELD,
     FRONT_FIELD,
+    LABEL_CSS,
     NOTE_TYPE_NAME,
     ensure_notetype,
     tts_tag,
@@ -109,3 +110,42 @@ def test_ensure_notetype_is_usable_after_field_drift_is_repaired(col):
     saved = col.get_note(note.id)
     assert saved[FRONT_FIELD] == "hello"
     assert saved[BACK_FIELD] == "world"
+
+
+def test_ensure_notetype_styles_the_imported_label(col):
+    ensure_notetype(col, "en_US")
+
+    css = col.models.by_name(NOTE_TYPE_NAME)["css"]
+    assert LABEL_CSS in css
+
+
+def test_ensure_notetype_adds_the_label_style_once(col):
+    ensure_notetype(col, "en_US")
+    ensure_notetype(col, "en_US")
+
+    assert col.models.by_name(NOTE_TYPE_NAME)["css"].count(LABEL_CSS) == 1
+
+
+def test_ensure_notetype_adds_the_label_style_to_an_existing_note_type(col):
+    ensure_notetype(col, "en_US")
+    model = col.models.by_name(NOTE_TYPE_NAME)
+    model["css"] = ".card { color: black; }"
+    col.models.save(model)
+
+    ensure_notetype(col, "en_US")
+
+    css = col.models.by_name(NOTE_TYPE_NAME)["css"]
+    assert css.startswith(".card { color: black; }")
+    assert LABEL_CSS in css
+
+
+def test_ensure_notetype_keeps_a_user_edited_label_rule(col):
+    ensure_notetype(col, "en_US")
+    model = col.models.by_name(NOTE_TYPE_NAME)
+    model["css"] = '.sm-label::before { content: attr(data-label) ": "; }'
+    col.models.save(model)
+
+    ensure_notetype(col, "en_US")
+
+    css = col.models.by_name(NOTE_TYPE_NAME)["css"]
+    assert css == '.sm-label::before { content: attr(data-label) ": "; }'

@@ -46,6 +46,23 @@ def config_from_dict(data: dict) -> Config:
     return Config(provider=provider, providers=providers, **values)
 
 
+def display_config(data: dict) -> Config:
+    """The config for screens that don't need a working AI provider.
+
+    A broken provider block must not reset tts_lang or default_deck to
+    defaults: importing would then rewrite the note type's audio language.
+    """
+    try:
+        return config_from_dict(data)
+    except ConfigError:
+        values = {
+            name: data[name]
+            for name in _TOP_LEVEL_STRINGS
+            if isinstance(data.get(name), str)
+        }
+        return Config(**values)
+
+
 def config_to_dict(config: Config) -> dict:
     return {
         "provider": config.provider,

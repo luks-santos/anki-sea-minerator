@@ -21,7 +21,7 @@ from aqt.qt import (
 )
 from aqt.utils import showWarning
 
-from ..addon_config import config_from_dict, config_to_dict
+from ..addon_config import config_from_dict, config_to_dict, display_config
 from ..anki.collection_client import CollectionAnkiClient
 from ..core.ai.base import AIError
 from ..core.ai.registry import build_provider
@@ -40,10 +40,8 @@ ADDON = __name__.split(".")[0]
 
 
 def _load_config() -> Config:
-    try:
-        return config_from_dict(mw.addonManager.getConfig(ADDON) or {})
-    except ConfigError:
-        return Config()
+    # A broken provider part must not reset deck, audio and color on Save.
+    return display_config(mw.addonManager.getConfig(ADDON) or {})
 
 
 def open_settings(parent: QWidget | None = None) -> bool:

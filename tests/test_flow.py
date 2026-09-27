@@ -4,6 +4,9 @@ from seaminerator.core.flow import (
     create_cards_for_selection,
     create_imported_card,
     create_imported_cards,
+    imported_back,
+    imported_front,
+    prepare_import,
 )
 from seaminerator.core.models import ImportedCard, Sentence, WordBlock
 
@@ -119,19 +122,52 @@ def test_create_cards_for_selection_maps_over_sentences():
     assert all(r.created for r in results)
 
 
-def test_create_imported_card_keeps_bracket_tag_on_front():
+def test_create_imported_card_turns_the_prefix_into_a_label_and_adds_the_topic():
     anki = FakeAnki()
     card = ImportedCard(
         front="[Grammar] We had a bad day.", back="Nós tivemos um dia ruim."
     )
 
-    result = create_imported_card(card, Config(), "English", anki)
+    result = create_imported_card(card, Config(), "English", anki, topic="Past Simple")
 
     assert result.created is True
     note = anki.notes[0]
-    assert note["fields"]["Front"] == "[Grammar] We had a bad day."
-    assert note["fields"]["Back"] == "Nós tivemos um dia ruim."
+    assert note["fields"]["Front"] == (
+        '<span class="sm-label" data-label="Grammar"></span>We had a bad day.'
+    )
+    assert note["fields"]["Back"] == "Nós tivemos um dia ruim. (past-simple)"
     assert note["tags"] == ["anki-sea-minerator"]
+
+
+def test_create_imported_card_without_topic_keeps_the_back():
+    anki = FakeAnki()
+    card = ImportedCard(front="Plain.", back="Simples.")
+
+    create_imported_card(card, Config(), "English", anki)
+
+    assert anki.notes[0]["fields"] == {"Front": "Plain.", "Back": "Simples."}
+
+
+def test_imported_front_converts_only_a_leading_bracket_prefix():
+    assert imported_front("[Grammar] I've just arrived.") == (
+        '<span class="sm-label" data-label="Grammar"></span>I\'ve just arrived.'
+    )
+    assert imported_front("He said [sic] hi.") == "He said [sic] hi."
+    assert imported_front("No prefix.") == "No prefix."
+
+
+def test_imported_front_escapes_the_label():
+    assert imported_front('[A&"B] x') == (
+        '<span class="sm-label" data-label="A&amp;&quot;B"></span>x'
+    )
+
+
+def test_imported_back_appends_the_normalized_topic():
+    assert imported_back("Eu acabei de chegar.", "present perfect") == (
+        "Eu acabei de chegar. (present-perfect)"
+    )
+    assert imported_back("Eu acabei de chegar.", "  ") == "Eu acabei de chegar."
+    assert imported_back("Eu acabei de chegar.", "") == "Eu acabei de chegar."
 
 
 def test_create_imported_cards_maps_over_list():
@@ -145,3 +181,47 @@ def test_create_imported_cards_maps_over_list():
 
     assert len(results) == 2
     assert all(r.created for r in results)
+
+
+def test_imported_back_does_not_repeat_a_topic_already_there():
+    back = "Eu acabei de chegar. (present-perfect)"
+    assert imported_back(back, "present perfect") == back
+
+
+LABEL_ONLY = """[Grammar]
+Eu acabei de chegar.
+
+[Grammar] Have you seen him?
+Você viu ele?"""
+
+
+def test_prepare_import_skips_a_front_that_has_only_a_label():
+    plan = prepare_import(LABEL_ONLY, "present perfect")
+
+    assert [c.front for c in plan.cards] == ["[Grammar] Have you seen him?"]
+    assert plan.warnings == ["card '[Grammar]' skipped: the front has only a label"]
+    assert plan.topic == "present-perfect"
+
+
+def test_prepare_import_keeps_the_parse_warnings():
+    plan = prepare_import("front only", "")
+    assert plan.cards == []
+    assert plan.warnings == ["block 1 skipped: expected 2 lines (front, back), got 1"]
+
+
+def test_prepare_import_warns_about_a_topic_that_normalizes_to_nothing():
+    plan = prepare_import("F.\nB.", " ??? ")
+    assert plan.topic == ""
+    assert plan.warnings == ["topic '???' ignored: use letters, digits and spaces"]
+
+
+def test_prepare_import_refuses_a_reserved_tag_as_topic():
+    plan = prepare_import("F.\nB.", "anki-sea-minerator")
+    assert plan.topic == ""
+    assert plan.warnings == ["topic 'anki-sea-minerator' ignored: it is a reserved tag"]
+
+
+def test_prepare_import_accepts_a_class_name_as_topic():
+    plan = prepare_import("F.\nB.", "phrasal verb")
+    assert plan.topic == "phrasal-verb"
+    assert plan.warnings == []

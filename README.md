@@ -90,6 +90,31 @@ See `src/seaminerator/config.md` for the full reference.
    (for example, a sentence where the expression text couldn't be located to
    highlight).
 
+### Importing ready-made cards
+
+`Tools → Import cards…` creates cards from text you already have, without
+the AI. Paste one card per block: the front on one line, the back on the
+next, and a blank line between cards:
+
+```text
+[Grammar] I've just arrived. I have just arrived.
+Eu acabei de chegar.
+
+[Grammar] Have you seen him?
+Você viu ele?
+```
+
+Pick a topic (e.g. `present perfect`) and a deck, then **Create cards**.
+
+- The back gets the topic in parentheses: `Eu acabei de chegar. (present-perfect)`.
+- A leading `[Label]` on the front is still shown on the card, but the audio
+  reads only the sentence.
+- Blocks without exactly two lines, and fronts that are only a `[Label]`, are
+  skipped and listed.
+- A card whose sentence already exists on a Sea Minerator card is rejected
+  as a duplicate, whatever its label, since it would say the same thing.
+- The whole import is one undo step (`Edit → Undo Import cards`).
+
 ## Audio: what `{{tts}}` can and can't do
 
 Sea Minerator does not generate or bundle any audio files. The front of each

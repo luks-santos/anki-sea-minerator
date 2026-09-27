@@ -27,10 +27,10 @@ hand as part of this task; see the task report for the before/after run).
 import pytest
 from anki.errors import NotFoundError
 
-from seaminerator.anki.batch import create_batch
+from seaminerator.anki.batch import create_batch, create_import_batch
 from seaminerator.anki.notetype import ensure_notetype
 from seaminerator.core.config import Config
-from seaminerator.core.models import Sentence, WordBlock
+from seaminerator.core.models import ImportedCard, Sentence, WordBlock
 
 
 def make_pair(expression: str, sentence_texts: list[str]):
@@ -89,4 +89,25 @@ def test_a_single_undo_after_merge_does_not_leave_a_partial_batch(col):
     # A single undo either removes all four (merge worked) or leaves some
     # behind (merge failed and each add_note kept its own undo step). The
     # requirement is one undo for the whole batch, so this must be 0.
+    assert col.note_count() == 0
+
+
+def test_import_batch_creates_every_card_and_undoes_as_one(col):
+    ensure_notetype(col, "en_US")
+    cards = [
+        ImportedCard(front="[Grammar] I've just arrived.", back="Eu acabei de chegar."),
+        ImportedCard(front="[Grammar] Have you seen him?", back="Você viu ele?"),
+    ]
+
+    results, _changes = create_import_batch(
+        col, cards, Config(), "Grammar", "present perfect"
+    )
+
+    assert [r.created for r in results] == [True, True]
+    note = col.get_note(results[0].note_id)
+    assert note["Back"] == "Eu acabei de chegar. (present-perfect)"
+    assert col.undo_status().undo == "Import cards"
+
+    col.undo()
+
     assert col.note_count() == 0

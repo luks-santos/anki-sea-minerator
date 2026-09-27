@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from ..core.flow import BACK_FIELD, FRONT_FIELD, NOTE_TYPE_NAME
+from ..core.flow import BACK_FIELD, FRONT_FIELD, LABEL_CLASS, NOTE_TYPE_NAME
 
 __all__ = [
     "BACK_FIELD",
     "FRONT_FIELD",
+    "LABEL_CSS",
     "NOTE_TYPE_NAME",
     "ensure_notetype",
     "front_template",
@@ -13,6 +14,11 @@ __all__ = [
 
 TEMPLATE_NAME = "Card 1"
 BACK_TEMPLATE = "{{FrontSide}}\n\n<hr id=answer>\n\n{{Back}}"
+
+# Draws an imported card's "[Grammar]" prefix from an empty span's
+# data-label (see core.flow.imported_front): shown on the card, absent from
+# the field text that {{tts}} reads aloud.
+LABEL_CSS = f'.{LABEL_CLASS}::before {{ content: "[" attr(data-label) "] "; }}'
 
 
 def tts_tag(lang: str) -> str:
@@ -38,7 +44,19 @@ def ensure_notetype(col, lang: str) -> int:
         template["qfmt"] = wanted_front
         template["afmt"] = BACK_TEMPLATE
         col.models.save(model)
+
+    if _add_label_css(model):
+        col.models.save(model)
     return model["id"]
+
+
+def _add_label_css(model: dict) -> bool:
+    # Match on the selector, not the whole rule, so a user who restyles the
+    # label keeps their version instead of getting ours appended again.
+    if f".{LABEL_CLASS}::before" in model["css"]:
+        return False
+    model["css"] = f"{model['css'].rstrip()}\n\n{LABEL_CSS}\n"
+    return True
 
 
 def _repair_fields(col, model: dict) -> bool:
@@ -69,5 +87,6 @@ def _create(col, lang: str) -> dict:
     template["qfmt"] = front_template(lang)
     template["afmt"] = BACK_TEMPLATE
     col.models.add_template(model, template)
+    _add_label_css(model)
     col.models.add(model)
     return col.models.by_name(NOTE_TYPE_NAME)
