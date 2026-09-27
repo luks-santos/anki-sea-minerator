@@ -15,6 +15,48 @@ class Summary:
     elapsed: str
 
 
+def parse_word_list(raw: str) -> list[str]:
+    # Repeats are dropped case-insensitively, keeping the first spelling:
+    # mining the same word twice pays for it twice and then fails the second
+    # card as a duplicate.
+    words: dict[str, str] = {}
+    for line in raw.splitlines():
+        word = line.strip()
+        if word and word.lower() not in words:
+            words[word.lower()] = word
+    return list(words.values())
+
+
+def start_error(api_key: str | None, words: list[str], deck: str) -> str | None:
+    if not api_key:
+        return (
+            "No Gemini API key configured.\n\n"
+            "Set it in Tools → Add-ons → Sea Minerator → Config."
+        )
+    if not words:
+        return "Paste at least one word to mine."
+    if not deck:
+        return "Choose a target deck."
+    return None
+
+
+def toggle_selection(
+    selection: dict[int, set[int]], w_index: int, s_index: int, checked: bool
+) -> None:
+    chosen = selection.setdefault(w_index, set())
+    if checked:
+        chosen.add(s_index)
+    else:
+        chosen.discard(s_index)
+
+
+def sentence_details(sentence: Sentence) -> str:
+    details = [sentence.note] if sentence.note else []
+    if sentence.topics:
+        details.append(", ".join(sentence.topics))
+    return " · ".join(details)
+
+
 def default_selection(blocks: list[WordBlock]) -> dict[int, set[int]]:
     return {i: {0} for i, b in enumerate(blocks) if b.sentences}
 

@@ -5,8 +5,12 @@ from seaminerator.core.session import (
     count_selected,
     default_selection,
     format_elapsed,
+    parse_word_list,
     selected_sentences,
+    sentence_details,
+    start_error,
     summarize,
+    toggle_selection,
 )
 
 
@@ -112,3 +116,70 @@ def test_apply_class_overrides_normalizes_typed_text():
 def test_apply_class_overrides_falls_back_when_text_is_blank():
     blocks = [make_block("whale", 1)]
     assert apply_class_overrides(blocks, {0: "   "})[0].class_tag == "noun"
+
+
+def test_parse_word_list_strips_and_drops_blank_lines():
+    assert parse_word_list("  give up \n\n  whale\n   \n") == ["give up", "whale"]
+
+
+def test_parse_word_list_drops_repeats_keeping_the_first_spelling():
+    raw = "Give up\nwhale\ngive up\nWHALE\nturn in"
+    assert parse_word_list(raw) == ["Give up", "whale", "turn in"]
+
+
+def test_parse_word_list_of_empty_text_is_empty():
+    assert parse_word_list("") == []
+
+
+def test_start_error_requires_an_api_key():
+    assert "API key" in start_error(api_key=None, words=["a"], deck="English")
+
+
+def test_start_error_requires_at_least_one_word():
+    assert "at least one word" in start_error(api_key="k", words=[], deck="English")
+
+
+def test_start_error_requires_a_deck():
+    assert "deck" in start_error(api_key="k", words=["a"], deck="")
+
+
+def test_start_error_is_none_when_everything_is_set():
+    assert start_error(api_key="k", words=["a"], deck="English") is None
+
+
+def test_toggle_selection_adds_and_removes_an_index():
+    selection = {0: {1}}
+
+    toggle_selection(selection, 0, 2, True)
+    assert selection == {0: {1, 2}}
+
+    toggle_selection(selection, 0, 1, False)
+    assert selection == {0: {2}}
+
+
+def test_toggle_selection_creates_the_word_entry_when_missing():
+    selection = {}
+    toggle_selection(selection, 3, 0, True)
+    assert selection == {3: {0}}
+
+
+def test_toggle_selection_ignores_removing_an_unselected_index():
+    selection = {0: set()}
+    toggle_selection(selection, 0, 4, False)
+    assert selection == {0: set()}
+
+
+def test_sentence_details_joins_note_and_topics():
+    sentence = Sentence(
+        text="x", highlight="x", note="experience", topics=["present-perfect"]
+    )
+    assert sentence_details(sentence) == "experience · present-perfect"
+
+
+def test_sentence_details_with_only_topics():
+    sentence = Sentence(text="x", highlight="x", topics=["past-simple", "verb-to-be"])
+    assert sentence_details(sentence) == "past-simple, verb-to-be"
+
+
+def test_sentence_details_is_empty_without_note_or_topics():
+    assert sentence_details(Sentence(text="x", highlight="x")) == ""
