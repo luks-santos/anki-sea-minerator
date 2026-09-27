@@ -101,7 +101,7 @@ class GeminiRestConnector:
             ) from exc
 
         try:
-            return parse_mining_response(json.loads(text))
+            return parse_mining_response(json.loads(text), topics)
         except (ValueError, TypeError) as exc:
             raise GeminiError(
                 f"the model returned an unexpected response: {exc}"

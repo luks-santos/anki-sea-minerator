@@ -210,3 +210,18 @@ def test_parse_mining_response_rejects_non_object_word_entry():
 def test_parse_mining_response_rejects_numeric_word_entry():
     with pytest.raises(ValueError, match="malformed mining response"):
         parse_mining_response({"words": [5]})
+
+
+def test_parse_drops_topics_that_are_class_tags():
+    payload = sample_payload()
+    payload["words"][0]["sentences"][0]["topics"] = ["noun", "past-simple", "Idiom"]
+    sentence = parse_mining_response(payload)[0].sentences[0]
+    assert sentence.topics == ["past-simple"]
+
+
+def test_parse_reuses_the_existing_spelling_of_a_topic():
+    payload = sample_payload()
+    payload["words"][0]["sentences"][0]["topics"] = ["verb-to-be", "gramatica"]
+    words = parse_mining_response(payload, vocabulary=["Verb_To_Be", "gramática"])
+    sentence = words[0].sentences[0]
+    assert sentence.topics == ["Verb_To_Be", "gramática"]

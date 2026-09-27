@@ -163,3 +163,14 @@ def test_server_error_raises_readable_error():
 
     with pytest.raises(GeminiError, match="Gemini API error 500"):
         make_connector(handler).mine(["give up"], prompt="RULES")
+
+
+def test_mine_maps_topics_back_to_the_collection_spelling():
+    payload = json.loads(json.dumps(PAYLOAD))
+    payload["words"][0]["sentences"][0]["topics"] = ["verb-to-be"]
+
+    words = make_connector(lambda request: ok(payload)).mine(
+        ["give up"], prompt="RULES", topics=["Verb_To_Be"]
+    )
+
+    assert words[0].sentences[0].topics == ["Verb_To_Be"]
