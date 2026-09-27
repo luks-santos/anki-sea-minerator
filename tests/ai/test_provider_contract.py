@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import httpx
 import pytest
 
+from seaminerator.core.ai.anthropic import AnthropicProvider
 from seaminerator.core.ai.base import AIError, MiningRequest
 from seaminerator.core.ai.gemini import GeminiProvider
 from seaminerator.core.ai.openai_compat import OpenAICompatProvider
@@ -118,7 +119,36 @@ def openai_case() -> ProviderCase:
     )
 
 
-CASES = [gemini_case(), openai_case()]
+def anthropic_case() -> ProviderCase:
+    def message(tool_input, stop_reason="tool_use"):
+        return httpx.Response(
+            200,
+            json={
+                "content": [
+                    {"type": "tool_use", "name": "record_mining", "input": tool_input}
+                ],
+                "stop_reason": stop_reason,
+            },
+        )
+
+    return ProviderCase(
+        id="anthropic",
+        build=lambda transport: AnthropicProvider(
+            api_key="secret",
+            model="claude-haiku-4-5-20251001",
+            base_url="https://api.anthropic.com",
+            transport=transport,
+        ),
+        ok=lambda payload: message(payload),
+        truncated=lambda: message({"words": []}, stop_reason="max_tokens"),
+        models=lambda: httpx.Response(
+            200, json={"data": [{"id": "claude-a"}, {"id": "claude-b"}]}
+        ),
+        expected_models=["claude-a", "claude-b"],
+    )
+
+
+CASES = [gemini_case(), openai_case(), anthropic_case()]
 
 
 @pytest.fixture(params=CASES, ids=lambda case: case.id)
