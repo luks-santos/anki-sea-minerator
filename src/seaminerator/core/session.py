@@ -27,12 +27,7 @@ def parse_word_list(raw: str) -> list[str]:
     return list(words.values())
 
 
-def start_error(api_key: str | None, words: list[str], deck: str) -> str | None:
-    if not api_key:
-        return (
-            "No Gemini API key configured.\n\n"
-            "Set it in Tools → Add-ons → Sea Minerator → Config."
-        )
+def start_error(words: list[str], deck: str) -> str | None:
     if not words:
         return "Paste at least one word to mine."
     if not deck:

@@ -25,9 +25,12 @@ from ..addon_config import config_from_dict
 from ..anki.batch import create_batch
 from ..anki.collection_client import CollectionAnkiClient
 from ..anki.notetype import NOTE_TYPE_NAME, ensure_notetype
-from ..core.ai.gemini_rest import GeminiError, GeminiRestConnector
+from ..core.ai.base import AIError
+from ..core.ai.registry import build_provider
 from ..core.cards import highlight_html
+from ..core.config import Config, ConfigError
 from ..core.flow import CardResult
+from ..core.mining import mine_words
 from ..core.models import WordBlock
 from ..core.prompt import load_prompt
 from ..core.session import (
@@ -59,8 +62,9 @@ class MineWizard(QDialog):
         self.setWindowTitle("Mine vocabulary")
         self.resize(720, 560)
 
-        config = mw.addonManager.getConfig(__name__.split(".")[0]) or {}
-        self._cfg = config_from_dict(config)
+        self._cfg = Config()
+        self._config_error: str | None = None
+        self._reload_config()
         self._client = CollectionAnkiClient(mw.col)
         self._blocks: list[WordBlock] = []
         self._selection: dict[int, set[int]] = {}
@@ -110,17 +114,45 @@ class MineWizard(QDialog):
         self._closed = True
         super().done(result)
 
+    def _reload_config(self) -> None:
+        # Read on open and again before every mining run: the wizard is
+        # non-modal, so the user may fix the key or switch provider in
+        # Tools → Sea Minerator settings… while it stays open.
+        config = mw.addonManager.getConfig(__name__.split(".")[0]) or {}
+        try:
+            self._cfg = config_from_dict(config)
+            self._config_error = None
+        except ConfigError as exc:
+            # The review screen still needs colors and a deck list, so keep
+            # the previous (or default) config; mining is refused until the
+            # config is fixed.
+            self._config_error = str(exc)
+
+    def _config_problem(self, message: str) -> None:
+        # The settings dialog shows what is missing; `message` is kept for
+        # the callers, which pass the ConfigError text.
+        from .settings import open_settings
+
+        if open_settings(self):
+            self._reload_config()
+
     def _start_mining(self) -> None:
-        api_key = self._cfg.gemini_api_key
         words = parse_word_list(self._words_edit.toPlainText())
-        error = start_error(api_key, words, self._deck_box.currentText())
+        error = start_error(words, self._deck_box.currentText())
         if error:
             showWarning(error, parent=self)
             return
-        assert api_key is not None  # start_error rejects a missing key
+        self._reload_config()
+        if self._config_error:
+            self._config_problem(self._config_error)
+            return
+        try:
+            provider = build_provider(self._cfg)
+        except ConfigError as exc:
+            self._config_problem(str(exc))
+            return
 
         try:
-            connector = GeminiRestConnector(api_key, self._cfg.model)
             prompt = load_prompt(self._cfg.prompt_path)
         except Exception as exc:
             showWarning(
@@ -144,7 +176,7 @@ class MineWizard(QDialog):
 
         op = QueryOp(
             parent=self,
-            op=lambda _col: connector.mine(words, prompt, topics),
+            op=lambda _col: mine_words(provider, words, prompt, topics),
             success=self._on_mined,
         )
         op.failure(self._on_mining_failed)
@@ -156,7 +188,7 @@ class MineWizard(QDialog):
         if self._closed:
             return
         self._mine_button.setEnabled(True)
-        if isinstance(exc, GeminiError):
+        if isinstance(exc, AIError):
             showWarning(str(exc), parent=self, textFormat="plain")
         else:
             showWarning(f"Mining failed: {exc}", parent=self, textFormat="plain")

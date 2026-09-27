@@ -10,6 +10,21 @@ def setup_menu() -> None:
     mw.form.menuTools.addAction(action)
     mw.seaminerator_action = action
 
+    settings_action = QAction("Sea Minerator settings…", mw)
+    settings_action.triggered.connect(_open_settings)
+    mw.form.menuTools.addAction(settings_action)
+    mw.seaminerator_settings_action = settings_action
+
+    # Tools → Add-ons → Config opens the settings dialog instead of Anki's
+    # raw JSON editor.
+    mw.addonManager.setConfigAction(__name__.split(".")[0], _open_settings)
+
+
+def _open_settings() -> None:
+    from .settings import open_settings
+
+    open_settings()
+
 
 def _open_wizard() -> None:
     from .wizard import MineWizard

@@ -131,20 +131,16 @@ def test_parse_word_list_of_empty_text_is_empty():
     assert parse_word_list("") == []
 
 
-def test_start_error_requires_an_api_key():
-    assert "API key" in start_error(api_key=None, words=["a"], deck="English")
-
-
 def test_start_error_requires_at_least_one_word():
-    assert "at least one word" in start_error(api_key="k", words=[], deck="English")
+    assert "at least one word" in start_error(words=[], deck="English")
 
 
 def test_start_error_requires_a_deck():
-    assert "deck" in start_error(api_key="k", words=["a"], deck="")
+    assert "deck" in start_error(words=["a"], deck="")
 
 
 def test_start_error_is_none_when_everything_is_set():
-    assert start_error(api_key="k", words=["a"], deck="English") is None
+    assert start_error(words=["a"], deck="English") is None
 
 
 def test_toggle_selection_adds_and_removes_an_index():
