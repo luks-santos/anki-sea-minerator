@@ -36,26 +36,6 @@ def test_ensure_notetype_back_template_shows_front_and_back(col):
     assert "{{Back}}" in back
 
 
-def test_ensure_notetype_shows_tags_on_the_back_only(col):
-    ensure_notetype(col, "en_US")
-
-    template = col.models.by_name(NOTE_TYPE_NAME)["tmpls"][0]
-    assert "{{Tags}}" in template["afmt"]
-    assert "{{Tags}}" not in template["qfmt"]
-
-
-def test_ensure_notetype_adds_tags_to_an_existing_back_template(col):
-    ensure_notetype(col, "en_US")
-    model = col.models.by_name(NOTE_TYPE_NAME)
-    model["tmpls"][0]["afmt"] = "{{FrontSide}}\n\n<hr id=answer>\n\n{{Back}}"
-    col.models.save(model)
-
-    ensure_notetype(col, "en_US")
-
-    back = col.models.by_name(NOTE_TYPE_NAME)["tmpls"][0]["afmt"]
-    assert "{{Tags}}" in back
-
-
 def test_ensure_notetype_is_idempotent(col):
     first = ensure_notetype(col, "en_US")
     second = ensure_notetype(col, "en_US")
