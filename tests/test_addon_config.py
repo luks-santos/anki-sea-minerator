@@ -143,6 +143,14 @@ def test_reads_the_chosen_voices_and_speed():
     assert cfg.tts_speed == 0.8
 
 
+def test_a_stored_awesometts_voice_is_dropped():
+    # Saved by a version that listed it; the note type then loses it on the
+    # next mining or import.
+    data = shipped()
+    data["tts_voices"] = ["AwesomeTTS"]
+    assert config_from_dict(data).tts_voices == ()
+
+
 def test_a_whole_number_speed_is_accepted():
     data = shipped()
     data["tts_speed"] = 2

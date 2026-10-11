@@ -7,17 +7,24 @@ PREVIEW_TEXT = "This is how your cards will sound."
 
 
 def installed_voices() -> list[tuple[str, str]]:
-    """(name, lang) of every usable voice Anki can speak with here."""
-    # all_tts_voices is not part of Anki's add-on API; if a later version
-    # moves or breaks it, the voice box falls back to plain text entry.
-    try:
-        from aqt.tts import all_tts_voices
+    """(name, lang) of every usable system voice Anki can speak with here.
 
-        return [
-            (voice.name, voice.lang)
-            for voice in all_tts_voices()
-            if not voice.unavailable()
-        ]
+    Only Anki's own players are asked: a voice another add-on registers (like
+    AwesomeTTS's) needs that add-on's own setup and doesn't exist on phones.
+    """
+    # Mirrors aqt.tts.all_tts_voices, which is not part of Anki's add-on API;
+    # if a later version breaks this, the voice box falls back to plain text.
+    try:
+        voices = []
+        for player in av_player.players:
+            if not type(player).__module__.startswith("aqt."):
+                continue
+            getter = getattr(player, "validated_voices", None) or getattr(
+                player, "voices", None
+            )
+            if getter:
+                voices.extend(getter())
+        return [(voice.name, voice.lang) for voice in voices if not voice.unavailable()]
     except Exception:
         return []
 

@@ -43,3 +43,9 @@ def test_voice_names_trims_and_drops_blank_entries():
 
 def test_voice_names_spells_spaces_the_way_anki_names_voices():
     assert voice_names(["Microsoft  Zira"]) == ("Microsoft_Zira",)
+
+
+def test_voice_names_drops_the_awesometts_voice():
+    # AwesomeTTS's on-the-fly voice needs that add-on's own setup and doesn't
+    # exist on phones; a card asking for it gets an error instead of audio.
+    assert voice_names(["AwesomeTTS", "Microsoft_Zira"]) == ("Microsoft_Zira",)

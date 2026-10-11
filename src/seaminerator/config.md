@@ -16,7 +16,8 @@ this JSON directly is only needed for `prompt_path`.
 - `tts_voices` — voices for `{{tts}}` in order of preference, e.g.
   `["Microsoft_Zira", "Apple_Samantha"]`; each device uses the first one it
   has. Empty uses the device's first voice for the language. The settings
-  dialog lists this computer's voices and can preview them.
+  dialog lists this computer's voices and can preview them. `AwesomeTTS` is
+  dropped: other add-ons' voices are not supported.
 - `tts_speed` — speaking speed from `0.5` to `2.0`; `1.0` is normal.
 - `highlight_color` — CSS color for the studied expression on the front.
 - `prompt_path` — path to a file overriding the built-in mining prompt.
