@@ -29,3 +29,19 @@ there; editing this JSON directly is never required.
   dropped: other add-ons' voices are not supported.
 - `tts_speed` — speaking speed from `0.5` to `2.0`; `1.0` is normal.
 - `highlight_color` — CSS color for the studied expression on the front.
+- `audio` — where card audio comes from:
+  - `source`: `system` (default: the device's voices through `{{tts}}`),
+    `google` (Google Translate, an unofficial endpoint) or `gemini` (Gemini
+    TTS with the Gemini provider's API key). The recorded sources store an
+    MP3 per new card in its `Audio` field. Gemini is backed up by Google
+    Translate; a sentence no source can record uses the system voice.
+  - `google.accent`: `us`, `co.uk`, `com.au`, `ca`, `co.in`, `ie` or `co.za`.
+    Also the accent of Gemini's Google Translate backup.
+  - `gemini.voice` (e.g. `Kore`, `Puck`) and `gemini.model` (default
+    `gemini-3.8-flash-lite-tts`; the 2.5/3.1 TTS models stop working on
+    2026-11-17). Gemini audio needs LAME: Anki bundles it on Windows and
+    macOS; on Linux, install the `lame` package.
+  - Choosing a recorded source adds an `Audio` field to an existing Sea
+    Minerator note type, which makes the next sync a one-time full sync. The
+    settings dialog asks first; setting `source` here by hand adds the field
+    on the next mining or import without asking.

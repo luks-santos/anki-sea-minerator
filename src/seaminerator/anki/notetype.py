@@ -1,14 +1,22 @@
 from __future__ import annotations
 
-from ..core.flow import BACK_FIELD, FRONT_FIELD, LABEL_CLASS, NOTE_TYPE_NAME
+from ..core.flow import (
+    AUDIO_FIELD,
+    BACK_FIELD,
+    FRONT_FIELD,
+    LABEL_CLASS,
+    NOTE_TYPE_NAME,
+)
 
 __all__ = [
+    "AUDIO_FIELD",
     "BACK_FIELD",
     "FRONT_FIELD",
     "LABEL_CSS",
     "NOTE_TYPE_NAME",
     "ensure_notetype",
     "front_template",
+    "has_audio_field",
     "tts_tag",
 ]
 
@@ -32,22 +40,59 @@ def tts_tag(lang: str, voices: tuple[str, ...] = (), speed: float = 1.0) -> str:
     return f"{{{{tts {' '.join(options)}:text:{FRONT_FIELD}}}}}"
 
 
-def front_template(lang: str, voices: tuple[str, ...] = (), speed: float = 1.0) -> str:
-    return f"{{{{{FRONT_FIELD}}}}}\n\n{tts_tag(lang, voices, speed)}"
+def _tag(name: str) -> str:
+    return "{{" + name + "}}"
+
+
+def front_template(
+    lang: str,
+    voices: tuple[str, ...] = (),
+    speed: float = 1.0,
+    *,
+    audio: bool = False,
+) -> str:
+    fallback = tts_tag(lang, voices, speed)
+    if not audio:
+        return f"{_tag(FRONT_FIELD)}\n\n{fallback}"
+    # Plays the recording when the card has one, the system voice otherwise.
+    a = AUDIO_FIELD
+    return (
+        f"{_tag(FRONT_FIELD)}\n\n"
+        f"{_tag('#' + a)}{_tag(a)}{_tag('/' + a)}"
+        f"{_tag('^' + a)}{fallback}{_tag('/' + a)}"
+    )
+
+
+def has_audio_field(col) -> bool:
+    # True when the note type doesn't exist yet: creating it with the field
+    # costs no full sync, so there is nothing to ask the user.
+    model = col.models.by_name(NOTE_TYPE_NAME)
+    return model is None or _has_field(model, AUDIO_FIELD)
+
+
+def _has_field(model: dict, name: str) -> bool:
+    return any(field["name"] == name for field in model["flds"])
 
 
 def ensure_notetype(
-    col, lang: str, voices: tuple[str, ...] = (), speed: float = 1.0
+    col,
+    lang: str,
+    voices: tuple[str, ...] = (),
+    speed: float = 1.0,
+    *,
+    audio: bool = False,
 ) -> int:
-    wanted_front = front_template(lang, voices, speed)
     model = col.models.by_name(NOTE_TYPE_NAME)
     if model is None:
-        model = _create(col, wanted_front)
+        model = _create(col, lang, voices, speed)
         return model["id"]
 
-    if _repair_fields(col, model):
+    if _repair_fields(col, model, audio):
         col.models.save(model)
 
+    wanted_front = front_template(
+        lang, voices, speed, audio=_has_field(model, AUDIO_FIELD)
+    )
     template = model["tmpls"][0]
     if template["qfmt"] != wanted_front or template["afmt"] != BACK_TEMPLATE:
         template["qfmt"] = wanted_front
@@ -68,32 +113,50 @@ def _add_label_css(model: dict) -> bool:
     return True
 
 
-def _repair_fields(col, model: dict) -> bool:
-    """Restore field names/positions to (FRONT_FIELD, BACK_FIELD).
+def _repair_fields(col, model: dict, audio: bool) -> bool:
+    """Restore the Front and Back fields, Front first, and Audio when asked.
 
-    Handles the two realistic drift shapes: the right number of fields with
-    wrong names (renamed positionally back), and a missing field (added).
-    Must run before any template comparison/rewrite, since a template can't
-    be saved with a reference to a field that doesn't exist.
+    Fields are matched by name first, so a user who reorders them (moving
+    Audio, or adding a field of their own) keeps every field and its content.
+    Only a missing Front or Back is repaired: the field in its usual slot is
+    renamed back when it isn't one of ours (a field renamed in place),
+    otherwise a new one is added there. Front must come first, since Anki's
+    duplicate and empty checks read the first field. Every one of these
+    changes the schema (a full sync), which is why Audio is only added when
+    `audio` is set. Must run before any template comparison/rewrite, since a
+    template can't be saved with a reference to a field that doesn't exist.
     """
+    ours = (FRONT_FIELD, BACK_FIELD, AUDIO_FIELD)
     changed = False
     for index, name in enumerate((FRONT_FIELD, BACK_FIELD)):
-        if index < len(model["flds"]):
-            if model["flds"][index]["name"] != name:
-                col.models.rename_field(model, model["flds"][index], name)
-                changed = True
+        if _has_field(model, name):
+            continue
+        fields = model["flds"]
+        if index < len(fields) and fields[index]["name"] not in ours:
+            col.models.rename_field(model, fields[index], name)
         else:
-            col.models.add_field(model, col.models.new_field(name))
-            changed = True
+            field = col.models.new_field(name)
+            col.models.add_field(model, field)
+            col.models.reposition_field(model, field, index)
+        changed = True
+    front = next(f for f in model["flds"] if f["name"] == FRONT_FIELD)
+    if model["flds"].index(front) != 0:
+        col.models.reposition_field(model, front, 0)
+        changed = True
+    if audio and not _has_field(model, AUDIO_FIELD):
+        col.models.add_field(model, col.models.new_field(AUDIO_FIELD))
+        changed = True
     return changed
 
 
-def _create(col, front: str) -> dict:
+def _create(col, lang: str, voices: tuple[str, ...], speed: float) -> dict:
+    # A new note type gets Audio from the start: adding a note type, unlike
+    # adding a field to one, needs no full sync.
     model = col.models.new(NOTE_TYPE_NAME)
-    for name in (FRONT_FIELD, BACK_FIELD):
+    for name in (FRONT_FIELD, BACK_FIELD, AUDIO_FIELD):
         col.models.add_field(model, col.models.new_field(name))
     template = col.models.new_template(TEMPLATE_NAME)
-    template["qfmt"] = front
+    template["qfmt"] = front_template(lang, voices, speed, audio=True)
     template["afmt"] = BACK_TEMPLATE
     col.models.add_template(model, template)
     _add_label_css(model)

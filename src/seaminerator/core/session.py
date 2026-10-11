@@ -69,6 +69,12 @@ def failure_lines(results: list[CardResult]) -> list[str]:
     return [f"{r.expression} — {r.warning}" for r in results if not r.created]
 
 
+def warning_lines(results: list[CardResult]) -> list[str]:
+    # Created cards with something to report (e.g. audio that fell back);
+    # failed cards are listed by failure_lines.
+    return [f"{r.expression} — {r.warning}" for r in results if r.created and r.warning]
+
+
 def default_selection(blocks: list[WordBlock]) -> dict[int, set[int]]:
     return {i: {0} for i, b in enumerate(blocks) if b.sentences}
 

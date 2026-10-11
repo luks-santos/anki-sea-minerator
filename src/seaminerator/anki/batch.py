@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from ..core.audio.recording import RecordingRun
 from ..core.config import Config
 from ..core.flow import CardResult, create_cards_for_selection, create_imported_cards
 from ..core.models import ImportedCard, Sentence, WordBlock
@@ -14,6 +15,7 @@ def create_batch(
     pairs: list[tuple[WordBlock, list[Sentence]]],
     cfg: Config,
     deck: str,
+    run: RecordingRun | None = None,
 ) -> tuple[list[CardResult], object]:
     """Create every selected card as one undo-batched unit.
 
@@ -37,7 +39,9 @@ def create_batch(
     target = col.add_custom_undo_entry(UNDO_NAME)
     results: list[CardResult] = []
     for word, sentences in pairs:
-        results.extend(create_cards_for_selection(word, sentences, cfg, deck, client))
+        results.extend(
+            create_cards_for_selection(word, sentences, cfg, deck, client, run)
+        )
     changes = col.merge_undo_entries(target)
     return results, changes
 
@@ -48,6 +52,7 @@ def create_import_batch(
     cfg: Config,
     deck: str,
     topic: str,
+    run: RecordingRun | None = None,
 ) -> tuple[list[CardResult], object]:
     """Create pasted front/back cards as one undo-batched unit.
 
@@ -56,6 +61,6 @@ def create_import_batch(
     """
     client = CollectionAnkiClient(col)
     target = col.add_custom_undo_entry(IMPORT_UNDO_NAME)
-    results = create_imported_cards(cards, cfg, deck, client, topic)
+    results = create_imported_cards(cards, cfg, deck, client, topic, run)
     changes = col.merge_undo_entries(target)
     return results, changes

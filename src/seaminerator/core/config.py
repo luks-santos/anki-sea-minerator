@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 
+from .audio.options import GEMINI_TTS_MODEL
+
 
 class ConfigError(Exception):
     pass
@@ -86,6 +88,16 @@ def default_providers() -> dict[str, ProviderSettings]:
 
 
 @dataclass(frozen=True)
+class AudioSettings:
+    # "system" speaks with the device's voices through {{tts}}; "google" and
+    # "gemini" record an MP3 per card, falling back to {{tts}} on failure.
+    source: str = "system"
+    google_accent: str = "us"
+    gemini_voice: str = "Kore"
+    gemini_model: str = GEMINI_TTS_MODEL
+
+
+@dataclass(frozen=True)
 class Config:
     provider: str = "gemini"
     providers: dict[str, ProviderSettings] = field(default_factory=default_providers)
@@ -100,3 +112,4 @@ class Config:
     # Edited prompt bodies by language code; a language without an entry
     # uses its default prompt.
     prompts: dict[str, str] = field(default_factory=dict)
+    audio: AudioSettings = field(default_factory=AudioSettings)

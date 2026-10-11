@@ -24,11 +24,15 @@ swapping the two lines in `batch.py` makes these tests fail (verified by
 hand as part of this task; see the task report for the before/after run).
 """
 
+from pathlib import Path
+
 import pytest
 from anki.errors import NotFoundError
 
 from seaminerator.anki.batch import create_batch, create_import_batch
 from seaminerator.anki.notetype import ensure_notetype
+from seaminerator.core.audio.base import media_name
+from seaminerator.core.audio.recording import Recording, RecordingRun
 from seaminerator.core.config import Config
 from seaminerator.core.models import ImportedCard, Sentence, WordBlock
 
@@ -111,3 +115,95 @@ def test_import_batch_creates_every_card_and_undoes_as_one(col):
     col.undo()
 
     assert col.note_count() == 0
+
+
+def recorded(*texts):
+    return RecordingRun(
+        recordings={
+            text: Recording(media_name("google", "us", text), b"ID3" + text.encode())
+            for text in texts
+        }
+    )
+
+
+def test_batch_puts_each_recording_in_media_and_the_audio_field(col):
+    ensure_notetype(col, "en_US", audio=True)
+    pairs = [make_pair("one", ["one."]), make_pair("two", ["two."])]
+
+    results, _changes = create_batch(
+        col, pairs, Config(), "English", recorded("one.", "two.")
+    )
+
+    name = media_name("google", "us", "one.")
+    note = col.get_note(results[0].note_id)
+    assert note["Audio"] == f"[sound:{name}]"
+    assert (Path(col.media.dir()) / name).read_bytes() == b"ID3one."
+    assert results[0].warning is None
+    col.undo()
+    assert col.note_count() == 0
+
+
+def test_batch_leaves_audio_empty_and_warns_when_a_recording_failed(col):
+    ensure_notetype(col, "en_US", audio=True)
+    run = RecordingRun(failures={"one.": "longer than 100 characters"})
+
+    results, _changes = create_batch(
+        col, [make_pair("one", ["one."])], Config(), "English", run
+    )
+
+    assert col.get_note(results[0].note_id)["Audio"] == ""
+    assert results[0].warning == (
+        "audio not recorded, system voice used: longer than 100 characters"
+    )
+
+
+def test_batch_does_not_repeat_the_stop_reason_on_every_card(col):
+    ensure_notetype(col, "en_US", audio=True)
+    run = RecordingRun(failures={"one.": "down", "two.": "down"}, stopped="down")
+    pairs = [make_pair("one", ["one."]), make_pair("two", ["two."])]
+
+    results, _changes = create_batch(col, pairs, Config(), "English", run)
+
+    assert [r.created for r in results] == [True, True]
+    assert [r.warning for r in results] == [None, None]
+
+
+def test_a_repeated_sentence_keeps_the_first_card_and_its_recording(col):
+    # Anki compares fronts without their HTML, so the same sentence with a
+    # different highlight is still a duplicate; record_all records it once.
+    ensure_notetype(col, "en_US", audio=True)
+    pairs = [make_pair("see", ["I see one."]), make_pair("one", ["I see one."])]
+
+    results, _changes = create_batch(
+        col, pairs, Config(), "English", recorded("I see one.")
+    )
+
+    assert [r.created for r in results] == [True, False]
+    assert "already exists" in results[1].warning
+    sound = f"[sound:{media_name('google', 'us', 'I see one.')}]"
+    assert col.get_note(results[0].note_id)["Audio"] == sound
+
+
+def test_batch_without_a_run_works_on_a_two_field_note_type(col, two_field_note_type):
+    ensure_notetype(col, "en_US")
+
+    results, _changes = create_batch(
+        col, [make_pair("one", ["one."])], Config(), "English"
+    )
+
+    assert results[0].created
+    assert "Audio" not in col.get_note(results[0].note_id).keys()
+    assert not col.schema_changed()
+
+
+def test_import_batch_records_the_front_without_its_label(col):
+    ensure_notetype(col, "en_US", audio=True)
+    text = "I've just arrived."
+    cards = [ImportedCard(front=f"[Grammar] {text}", back="Eu acabei de chegar.")]
+
+    results, _changes = create_import_batch(
+        col, cards, Config(), "Grammar", "", recorded(text)
+    )
+
+    note = col.get_note(results[0].note_id)
+    assert note["Audio"] == f"[sound:{media_name('google', 'us', text)}]"

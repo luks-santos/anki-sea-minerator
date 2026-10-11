@@ -28,5 +28,10 @@
   "tts_lang": "en_US",
   "tts_voices": [],
   "tts_speed": 1.0,
-  "highlight_color": "#2563eb"
+  "highlight_color": "#2563eb",
+  "audio": {
+    "source": "system",
+    "google": {"accent": "us"},
+    "gemini": {"voice": "Kore", "model": "gemini-3.8-flash-lite-tts"}
+  }
 }
