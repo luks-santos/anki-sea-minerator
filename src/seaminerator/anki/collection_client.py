@@ -15,6 +15,11 @@ class CollectionAnkiClient:
     def tag_names(self) -> list[str]:
         return list(self._col.tags.all())
 
+    def write_media(self, name: str, data: bytes) -> str:
+        # Returns the name Anki stored the file under, which differs from
+        # `name` only if another file already uses it with other content.
+        return self._col.media.write_data(name, data)
+
     def add_note(
         self,
         deck: str,

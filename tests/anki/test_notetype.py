@@ -1,9 +1,12 @@
 from seaminerator.anki.notetype import (
+    AUDIO_FIELD,
     BACK_FIELD,
     FRONT_FIELD,
     LABEL_CSS,
     NOTE_TYPE_NAME,
     ensure_notetype,
+    front_template,
+    has_audio_field,
     tts_tag,
 )
 
@@ -28,12 +31,12 @@ def test_tts_tag_leaves_out_default_options():
     )
 
 
-def test_ensure_notetype_creates_it_with_both_fields(col):
+def test_ensure_notetype_creates_it_with_three_fields(col):
     ensure_notetype(col, "en_US")
 
     model = col.models.by_name(NOTE_TYPE_NAME)
     assert model is not None
-    assert [f["name"] for f in model["flds"]] == [FRONT_FIELD, BACK_FIELD]
+    assert [f["name"] for f in model["flds"]] == [FRONT_FIELD, BACK_FIELD, AUDIO_FIELD]
 
 
 def test_ensure_notetype_puts_the_tts_tag_in_the_front_template(col):
@@ -102,7 +105,7 @@ def test_ensure_notetype_restores_a_renamed_field(col):
     ensure_notetype(col, "en_US")
 
     model = col.models.by_name(NOTE_TYPE_NAME)
-    assert [f["name"] for f in model["flds"]] == [FRONT_FIELD, BACK_FIELD]
+    assert [f["name"] for f in model["flds"]] == [FRONT_FIELD, BACK_FIELD, AUDIO_FIELD]
 
 
 def test_ensure_notetype_restores_a_missing_field(col):
@@ -114,7 +117,7 @@ def test_ensure_notetype_restores_a_missing_field(col):
     ensure_notetype(col, "en_US")
 
     model = col.models.by_name(NOTE_TYPE_NAME)
-    assert [f["name"] for f in model["flds"]] == [FRONT_FIELD, BACK_FIELD]
+    assert [f["name"] for f in model["flds"]] == [FRONT_FIELD, BACK_FIELD, AUDIO_FIELD]
 
 
 def test_ensure_notetype_is_usable_after_field_drift_is_repaired(col):
@@ -173,3 +176,63 @@ def test_ensure_notetype_keeps_a_user_edited_label_rule(col):
 
     css = col.models.by_name(NOTE_TYPE_NAME)["css"]
     assert css == '.sm-label::before { content: attr(data-label) ": "; }'
+
+
+AUDIO_TEMPLATE = (
+    "{{Front}}\n\n{{#Audio}}{{Audio}}{{/Audio}}"
+    "{{^Audio}}{{tts en_US:text:Front}}{{/Audio}}"
+)
+
+
+def test_front_template_with_audio_falls_back_to_tts():
+    assert front_template("en_US", audio=True) == AUDIO_TEMPLATE
+    assert front_template("en_US") == "{{Front}}\n\n{{tts en_US:text:Front}}"
+
+
+def test_a_new_note_type_gets_the_audio_template(col):
+    ensure_notetype(col, "en_US")
+
+    assert col.models.by_name(NOTE_TYPE_NAME)["tmpls"][0]["qfmt"] == AUDIO_TEMPLATE
+
+
+def test_ensure_notetype_leaves_a_two_field_note_type_alone_without_audio(
+    col, two_field_note_type
+):
+    ensure_notetype(col, "en_US")
+
+    model = col.models.by_name(NOTE_TYPE_NAME)
+    assert [f["name"] for f in model["flds"]] == [FRONT_FIELD, BACK_FIELD]
+    assert model["tmpls"][0]["qfmt"] == front_template("en_US")
+    assert not col.schema_changed()
+
+
+def test_ensure_notetype_adds_the_audio_field_when_asked(col, two_field_note_type):
+    ensure_notetype(col, "en_US", audio=True)
+
+    model = col.models.by_name(NOTE_TYPE_NAME)
+    assert [f["name"] for f in model["flds"]] == [FRONT_FIELD, BACK_FIELD, AUDIO_FIELD]
+    assert model["tmpls"][0]["qfmt"] == AUDIO_TEMPLATE
+    note = col.get_note(two_field_note_type)
+    assert (note[FRONT_FIELD], note[AUDIO_FIELD]) == ("Old card.", "")
+
+
+def test_ensure_notetype_keeps_the_audio_field_without_audio(col):
+    ensure_notetype(col, "en_US", audio=True)
+
+    ensure_notetype(col, "en_US")
+
+    model = col.models.by_name(NOTE_TYPE_NAME)
+    assert [f["name"] for f in model["flds"]] == [FRONT_FIELD, BACK_FIELD, AUDIO_FIELD]
+    assert model["tmpls"][0]["qfmt"] == AUDIO_TEMPLATE
+
+
+def test_has_audio_field(col, two_field_note_type):
+    assert has_audio_field(col) is False
+
+    ensure_notetype(col, "en_US", audio=True)
+
+    assert has_audio_field(col) is True
+
+
+def test_has_audio_field_is_true_before_the_note_type_exists(col):
+    assert has_audio_field(col) is True

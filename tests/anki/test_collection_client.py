@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from seaminerator.anki.collection_client import (
@@ -125,3 +127,12 @@ def test_create_card_tags_only_the_origin_in_a_real_collection(client, col):
     assert note.tags == ["anki-sea-minerator"]
     assert note["Back"] == "Give up: Desistir (Phrasal verb · present-perfect)"
     assert col.tags.all() == ["anki-sea-minerator"]
+
+
+def test_write_media_stores_the_file_and_returns_its_name(col):
+    client = CollectionAnkiClient(col)
+
+    name = client.write_media("sea-minerator-test.mp3", b"ID3data")
+
+    assert name == "sea-minerator-test.mp3"
+    assert (Path(col.media.dir()) / name).read_bytes() == b"ID3data"
