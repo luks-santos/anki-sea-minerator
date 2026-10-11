@@ -40,3 +40,13 @@ def preview(lang: str, voices: tuple[str, ...], speed: float) -> None:
         other_args=[],
     )
     av_player.play_tags([tag])
+
+
+def play_recording(data: bytes) -> None:
+    # Anki's temp folder is emptied when it closes.
+    from anki.utils import tmpfile
+
+    path = tmpfile(suffix=".mp3")
+    with open(path, "wb") as file:
+        file.write(data)
+    av_player.play_file(path)

@@ -76,6 +76,14 @@ The settings dialog also sets:
   Like `tts_lang`, they reach the note type the next time you create or
   import cards, and then apply to existing cards too.
 - `highlight_color` — the CSS color used for the studied expression.
+- `audio` — **Audio source**: the system voice (default), or a recording
+  made when each card is created, by Google Translate (free, unofficial) or
+  Gemini (your Gemini key; free tier limited to about 100 sentences a day).
+  Recorded cards sound the same on every device; if recording fails, the
+  card uses the system voice and the summary says why. Sentences are sent
+  to the chosen service. The first time you pick a recorded source, the
+  dialog adds an Audio field to the note type: sync your other devices
+  first, because the next sync will be a one-time full sync (choose Upload).
 
 **Edit prompt…**, next to the native language, shows the prompt the model
 receives for that language and lets you change it; **Reset to default** brings
