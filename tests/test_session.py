@@ -13,6 +13,7 @@ from seaminerator.core.session import (
     start_error,
     summarize,
     toggle_selection,
+    warning_lines,
 )
 
 
@@ -223,3 +224,20 @@ def test_failure_lines_name_each_failed_card():
     assert failure_lines(results) == [
         "Have you seen him? — card not created: duplicate"
     ]
+
+
+def test_warning_lines_name_each_created_card_with_a_warning():
+    results = [
+        CardResult(
+            expression="a",
+            front="a",
+            created=True,
+            warning="audio not recorded, system voice used: x",
+        ),
+        CardResult(expression="b", front="b", created=True),
+        CardResult(
+            expression="c", front="c", created=False, warning="card not created: dup"
+        ),
+    ]
+
+    assert warning_lines(results) == ["a — audio not recorded, system voice used: x"]

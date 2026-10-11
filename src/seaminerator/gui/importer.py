@@ -21,9 +21,12 @@ from ..addon_config import display_config
 from ..anki.batch import create_import_batch
 from ..anki.collection_client import CollectionAnkiClient
 from ..anki.notetype import NOTE_TYPE_NAME, ensure_notetype
+from ..core.audio.base import speech_text
+from ..core.audio.recording import RecordingRun, stopped_note
 from ..core.flow import CardResult, ImportPlan, prepare_import
-from ..core.session import failure_lines, import_status, summarize
+from ..core.session import failure_lines, import_status, summarize, warning_lines
 from ..core.tags import BASE_TOPICS
+from .recording import record_then
 
 ADDON = __name__.split(".")[0]
 
@@ -52,6 +55,7 @@ class ImportDialog(QDialog):
         self._cfg = display_config(mw.addonManager.getConfig(ADDON) or {})
         self._plan = ImportPlan(cards=[], warnings=[], topic="")
         self._results: list[CardResult] = []
+        self._run: RecordingRun | None = None
         self._creating = False
         self._closed = False
 
@@ -131,7 +135,11 @@ class ImportDialog(QDialog):
             return
         try:
             ensure_notetype(
-                mw.col, self._cfg.tts_lang, self._cfg.tts_voices, self._cfg.tts_speed
+                mw.col,
+                self._cfg.tts_lang,
+                self._cfg.tts_voices,
+                self._cfg.tts_speed,
+                audio=self._cfg.audio.source != "system",
             )
         except Exception as exc:
             showWarning(
@@ -143,14 +151,31 @@ class ImportDialog(QDialog):
 
         cards = list(self._plan.cards)
         topic = self._plan.topic
-
-        def op(col):
-            results, changes = create_import_batch(col, cards, self._cfg, deck, topic)
-            self._results = results
-            return changes
+        texts = [speech_text(card.front, strip_label=True) for card in cards]
 
         self._creating = True
         self._refresh()
+        record_then(
+            self,
+            self._cfg,
+            texts,
+            lambda run: self._create_batch(cards, deck, topic, run),
+        )
+
+    def _create_batch(
+        self, cards, deck: str, topic: str, run: RecordingRun | None
+    ) -> None:
+        if self._closed:
+            return
+        self._run = run
+
+        def op(col):
+            results, changes = create_import_batch(
+                col, cards, self._cfg, deck, topic, run
+            )
+            self._results = results
+            return changes
+
         CollectionOp(parent=self, op=op).success(self._on_created).failure(
             self._on_failed
         ).run_in_background()
@@ -166,9 +191,14 @@ class ImportDialog(QDialog):
         text = f"{summary.created} card(s) created."
         if summary.failed:
             text += f" {summary.failed} failed (see details)."
-            # Details are a scrollable area, so hundreds of failures never
-            # push the OK button off-screen; each line names its card.
-            box.setDetailedText("\n".join(failure_lines(self._results)))
+        note = stopped_note(self._run)
+        if note:
+            text += f"\n\n{note}"
+        # Details are a scrollable area, so hundreds of lines never push the
+        # OK button off-screen; each line names its card.
+        details = failure_lines(self._results) + warning_lines(self._results)
+        if details:
+            box.setDetailedText("\n".join(details))
         box.setText(text)
         box.exec()
         self.accept()

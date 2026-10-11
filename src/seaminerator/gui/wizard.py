@@ -28,6 +28,8 @@ from ..anki.collection_client import CollectionAnkiClient
 from ..anki.notetype import NOTE_TYPE_NAME, ensure_notetype
 from ..core.ai.base import AIError
 from ..core.ai.registry import build_provider
+from ..core.audio.base import speech_text
+from ..core.audio.recording import RecordingRun, stopped_note
 from ..core.cards import highlight_html
 from ..core.config import Config, ConfigError
 from ..core.flow import CardResult
@@ -47,6 +49,7 @@ from ..core.session import (
     toggle_selection,
 )
 from ..core.tags import CLASS_TAGS, topic_vocabulary
+from .recording import record_then
 
 ADDON = __name__.split(".")[0]
 
@@ -75,6 +78,7 @@ class MineWizard(QDialog):
         self._checkboxes: dict[int, list[QCheckBox]] = {}
         self._class_overrides: dict[int, str] = {}
         self._results: list[CardResult] = []
+        self._run: RecordingRun | None = None
         self._creating = False
         self._closed = False
         self._started_at = 0.0
@@ -240,7 +244,11 @@ class MineWizard(QDialog):
         self._blocks = blocks
         try:
             ensure_notetype(
-                mw.col, self._cfg.tts_lang, self._cfg.tts_voices, self._cfg.tts_speed
+                mw.col,
+                self._cfg.tts_lang,
+                self._cfg.tts_voices,
+                self._cfg.tts_speed,
+                audio=self._cfg.audio.source != "system",
             )
         except Exception as exc:
             showWarning(
@@ -418,14 +426,24 @@ class MineWizard(QDialog):
             return
 
         deck = self._deck_box.currentText()
-
-        def op(col):
-            results, changes = create_batch(col, pairs, self._cfg, deck)
-            self._results = results
-            return changes
+        texts = [speech_text(s.text) for _word, sentences in pairs for s in sentences]
 
         self._creating = True
         self._refresh_count()
+        record_then(
+            self, self._cfg, texts, lambda run: self._create_batch(pairs, deck, run)
+        )
+
+    def _create_batch(self, pairs, deck: str, run: RecordingRun | None) -> None:
+        if self._closed:
+            return
+        self._run = run
+
+        def op(col):
+            results, changes = create_batch(col, pairs, self._cfg, deck, run)
+            self._results = results
+            return changes
+
         CollectionOp(parent=self, op=op).success(self._on_cards_created).failure(
             self._on_create_failed
         ).run_in_background()
@@ -455,10 +473,12 @@ class MineWizard(QDialog):
             headline += f" · {summary.failed} failed"
         layout.addWidget(QLabel(headline))
 
-        if summary.warnings:
+        note = stopped_note(self._run)
+        lines = ([note] if note else []) + summary.warnings
+        if lines:
             warnings = QTextEdit(page)
             warnings.setReadOnly(True)
-            warnings.setPlainText("\n".join(summary.warnings))
+            warnings.setPlainText("\n".join(lines))
             layout.addWidget(warnings)
 
         close = QPushButton("Close", page)
