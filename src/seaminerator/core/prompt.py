@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from pathlib import Path
-
+from .config import Config
 from .languages import NATIVE_LANGUAGES
 from .tags import CLASS_TAGS
 
@@ -136,9 +135,7 @@ def tagging_instructions(topics: list[str]) -> str:
     return _TAGGING_RULES.format(classes=", ".join(CLASS_TAGS), existing=existing)
 
 
-def load_prompt(path: str | None) -> str:
-    if path:
-        p = Path(path)
-        if p.is_file():
-            return p.read_text(encoding="utf-8")
-    return PT_BR_PROMPT
+def prompt_for(cfg: Config) -> str:
+    # An edit belongs to its language only: switching languages never sends
+    # another language's prompt.
+    return cfg.prompts.get(cfg.native_language) or default_prompt(cfg.native_language)

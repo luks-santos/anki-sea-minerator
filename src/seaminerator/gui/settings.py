@@ -222,7 +222,6 @@ class SettingsDialog(QDialog):
             self._deck_box.currentText(),
             self._tts_edit.text(),
             self._color_edit.text(),
-            self._cfg.prompt_path,
             tts_voices=self._voice_box.currentText(),
             tts_speed=self._speed_box.value(),
             # No widgets for these yet: carried through so Save keeps them.
@@ -336,7 +335,7 @@ class SettingsDialog(QDialog):
 
 
 class _JsonEditor(QDialog):
-    """Raw JSON for advanced options such as `prompt_path`.
+    """Raw JSON for every option, including edited prompts.
 
     Anki's own `aqt.addons.ConfigEditor` needs the Add-ons dialog as its
     parent, so this is a minimal stand-in that validates before accepting.

@@ -297,3 +297,12 @@ def test_with_native_language_changes_only_that_key():
         "native_language": "es",
     }
     assert "native_language" not in data
+
+
+def test_a_stale_prompt_path_is_ignored():
+    # Configs saved before this version still carry it.
+    data = shipped()
+    data["prompt_path"] = "C:/old/prompt.txt"
+
+    assert config_from_dict(data) == Config()
+    assert "prompt_path" not in config_to_dict(Config())

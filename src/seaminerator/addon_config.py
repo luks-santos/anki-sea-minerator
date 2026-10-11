@@ -11,7 +11,7 @@ from .core.config import (
 )
 from .core.languages import NATIVE_LANGUAGES
 
-_TOP_LEVEL_STRINGS = ("default_deck", "tts_lang", "highlight_color", "prompt_path")
+_TOP_LEVEL_STRINGS = ("default_deck", "tts_lang", "highlight_color")
 
 
 def config_from_dict(data: dict) -> Config:
@@ -170,5 +170,4 @@ def config_to_dict(config: Config) -> dict:
         "highlight_color": config.highlight_color,
         "native_language": config.native_language,
         "prompts": dict(config.prompts),
-        "prompt_path": config.prompt_path,
     }

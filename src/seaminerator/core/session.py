@@ -27,11 +27,13 @@ def parse_word_list(raw: str) -> list[str]:
     return list(words.values())
 
 
-def start_error(words: list[str], deck: str) -> str | None:
+def start_error(words: list[str], deck: str, native_language: str) -> str | None:
     if not words:
         return "Paste at least one word to mine."
     if not deck:
         return "Choose a target deck."
+    if not native_language:
+        return "Choose your native language."
     return None
 
 

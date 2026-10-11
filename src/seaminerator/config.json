@@ -28,6 +28,5 @@
   "tts_lang": "en_US",
   "tts_voices": [],
   "tts_speed": 1.0,
-  "highlight_color": "#2563eb",
-  "prompt_path": ""
+  "highlight_color": "#2563eb"
 }

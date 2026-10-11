@@ -1,12 +1,13 @@
 import pytest
 
+from seaminerator.core.config import Config
 from seaminerator.core.languages import NATIVE_LANGUAGES
 from seaminerator.core.prompt import (
     PROMPT_TEMPLATE,
     PT_BR_PROMPT,
     RESPONSE_FORMAT,
     default_prompt,
-    load_prompt,
+    prompt_for,
     tagging_instructions,
 )
 from seaminerator.core.tags import CLASS_TAGS
@@ -55,20 +56,25 @@ def test_response_format_describes_every_field_without_a_portuguese_example():
     assert "Desistir" not in RESPONSE_FORMAT
 
 
-def test_load_prompt_returns_the_brazilian_body_when_no_path():
-    assert load_prompt(None) == PT_BR_PROMPT
-    assert load_prompt("") == PT_BR_PROMPT
+def test_prompt_for_prefers_the_users_edit():
+    # Sent literally: no placeholder substitution in an edit.
+    cfg = Config(native_language="es", prompts={"es": "Mi prompt {native_language} {}"})
+    assert prompt_for(cfg) == "Mi prompt {native_language} {}"
 
 
-def test_load_prompt_reads_file(tmp_path):
-    f = tmp_path / "custom.txt"
-    f.write_text("my custom prompt", encoding="utf-8")
-    assert load_prompt(str(f)) == "my custom prompt"
+def test_prompt_for_uses_the_default_without_an_edit():
+    assert prompt_for(Config(native_language="pt-BR")) == PT_BR_PROMPT
+    assert prompt_for(Config(native_language="es")) == default_prompt("es")
 
 
-def test_load_prompt_falls_back_when_missing(tmp_path):
-    missing = tmp_path / "nope.txt"
-    assert load_prompt(str(missing)) == PT_BR_PROMPT
+def test_prompt_for_ignores_edits_made_for_another_language():
+    cfg = Config(native_language="es", prompts={"fr": "Mon prompt"})
+    assert prompt_for(cfg) == default_prompt("es")
+
+
+def test_prompt_for_requires_a_chosen_language():
+    with pytest.raises(KeyError):
+        prompt_for(Config())
 
 
 def test_tagging_instructions_list_every_class():

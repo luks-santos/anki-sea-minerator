@@ -93,4 +93,3 @@ class Config:
     # Edited prompt bodies by language code; a language without an entry
     # uses its default prompt.
     prompts: dict[str, str] = field(default_factory=dict)
-    prompt_path: str = ""

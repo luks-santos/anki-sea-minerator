@@ -44,7 +44,6 @@ def form_to_config(
     default_deck: str,
     tts_lang: str,
     highlight_color: str,
-    prompt_path: str,
     *,
     tts_voices: str = "",
     tts_speed: float = 1.0,
@@ -59,7 +58,6 @@ def form_to_config(
         tts_voices=voice_names(tts_voices.split(",")),
         tts_speed=tts_speed,
         highlight_color=highlight_color.strip(),
-        prompt_path=prompt_path,
         native_language=native_language,
         prompts=dict(prompts or {}),
     )
