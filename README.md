@@ -25,7 +25,9 @@ Cards use their own note type, **Sea Minerator**, created automatically the
 first time you mine:
 
 - **Front:** the example sentence, with the mined expression highlighted in
-  color, plus an inline `{{tts}}` tag that plays the sentence aloud.
+  color. It plays the card's recording when it has one (the **Audio** field,
+  filled by a recorded audio source), and otherwise speaks the sentence with
+  Anki's `{{tts}}` tag.
 - **Back:** the expression, its translations, and in parentheses its grammar
   class plus the grammar topics the sentence exercises, e.g.
   `Have been: Tenho sido, Estive (Verb · present-perfect)`. The class always
@@ -132,13 +134,37 @@ Pick a topic (e.g. `present perfect`) and a deck, then **Create cards**.
   as a duplicate, whatever its label, since it would say the same thing.
 - The whole import is one undo step (`Edit → Undo Import cards`).
 
-## Audio: what `{{tts}}` can and can't do
+## Audio
 
-Sea Minerator does not generate or bundle any audio files. The front of each
-card contains Anki's native `{{tts}}` tag, which asks whatever is running
-Anki to speak the sentence using **the operating system's own
-text-to-speech voices** at review time. That has real consequences worth
-knowing before you rely on it:
+Each card's sentence is spoken in one of two ways, chosen with **Audio
+source** in the settings:
+
+- **System voice** (the default): nothing is recorded. The front uses
+  Anki's `{{tts}}` tag, described below.
+- **Recorded** (Google Translate or Gemini): when a card is created, its
+  sentence is recorded to an MP3 stored in the collection's media and in the
+  card's **Audio** field, so it sounds the same on every device, AnkiWeb
+  included. If a recording fails (no network, the service is down, a quota
+  is reached), the card is still created and uses the system voice; the
+  summary says which cards and why. Things to know:
+  - Sentences are sent to the chosen service. Google Translate's endpoint is
+    unofficial and may stop working; Gemini uses your Gemini API key, and
+    its free tier allows about 100 sentences a day.
+  - Gemini's default TTS model is `gemini-3.8-flash-lite-tts`; the older
+    2.5 and 3.1 TTS models stop working on 2026-11-17.
+  - Gemini audio is converted to MP3 with LAME, which Anki bundles on
+    Windows and macOS. On Linux, install the `lame` package, or Gemini cards
+    will use the system voice.
+  - Undoing a batch removes its cards; their MP3 files stay in the media
+    folder until **Tools → Check Media** removes them, as with any audio.
+
+### What `{{tts}}` can and can't do
+
+With the system voice, and for any card without a recording, the front
+uses Anki's native `{{tts}}` tag, which asks whatever is running Anki to
+speak the sentence using **the operating system's own text-to-speech
+voices** at review time. That has real consequences worth knowing before
+you rely on it:
 
 - **Requires Anki 2.1.20+ on desktop**, AnkiDroid 2.17+, or AnkiMobile
   2.0.56+. Older clients will show the tag literally instead of speaking it.
@@ -157,9 +183,8 @@ knowing before you rely on it:
   only if audio matters to you.
 
 If your study setup depends on hearing every card reliably in the browser or
-on Linux, this add-on's audio will disappoint you — highlighting, the mined
-content, and the note type still work regardless, but the sentence won't
-always be read aloud.
+on Linux, choose a recorded audio source: recorded cards play everywhere,
+and only cards whose recording failed depend on `{{tts}}`.
 
 ## Building from source
 
