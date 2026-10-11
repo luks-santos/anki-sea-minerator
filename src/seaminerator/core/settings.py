@@ -44,10 +44,11 @@ def form_to_config(
     default_deck: str,
     tts_lang: str,
     highlight_color: str,
-    prompt_path: str,
     *,
     tts_voices: str = "",
     tts_speed: float = 1.0,
+    native_language: str = "",
+    prompts: dict[str, str] | None = None,
 ) -> Config:
     return Config(
         provider=provider,
@@ -57,7 +58,8 @@ def form_to_config(
         tts_voices=voice_names(tts_voices.split(",")),
         tts_speed=tts_speed,
         highlight_color=highlight_color.strip(),
-        prompt_path=prompt_path,
+        native_language=native_language,
+        prompts=dict(prompts or {}),
     )
 
 
@@ -112,3 +114,31 @@ def model_choices(models: list[str]) -> list[str]:
     # A service whose ids all look non-chat is unusual; show everything
     # rather than an empty list.
     return chat or unique
+
+
+EMPTY_PROMPT_MESSAGE = (
+    "The prompt can't be empty — use Reset to go back to the default."
+)
+
+
+def _is_default(text: str, default: str) -> bool:
+    return text.strip() == default.strip()
+
+
+def store_prompt(
+    prompts: dict[str, str], code: str, text: str, default: str
+) -> dict[str, str]:
+    if not text.strip():
+        raise ValueError(EMPTY_PROMPT_MESSAGE)
+    stored = dict(prompts)
+    if _is_default(text, default):
+        # Storing an unedited default would pin it: a better default in a
+        # later version would never reach this user.
+        stored.pop(code, None)
+    else:
+        stored[code] = text
+    return stored
+
+
+def prompt_status(text: str, default: str) -> str:
+    return "Default" if _is_default(text, default) else "Customized"

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import html
 import time
+from dataclasses import replace
 
 from aqt import mw
 from aqt.operations import CollectionOp, QueryOp
@@ -21,7 +22,7 @@ from aqt.qt import (
 )
 from aqt.utils import showWarning
 
-from ..addon_config import config_from_dict
+from ..addon_config import config_from_dict, display_config, with_native_language
 from ..anki.batch import create_batch
 from ..anki.collection_client import CollectionAnkiClient
 from ..anki.notetype import NOTE_TYPE_NAME, ensure_notetype
@@ -30,9 +31,10 @@ from ..core.ai.registry import build_provider
 from ..core.cards import highlight_html
 from ..core.config import Config, ConfigError
 from ..core.flow import CardResult
+from ..core.languages import NATIVE_LANGUAGES
 from ..core.mining import mine_words
 from ..core.models import WordBlock
-from ..core.prompt import load_prompt
+from ..core.prompt import prompt_for
 from ..core.session import (
     apply_class_overrides,
     count_selected,
@@ -45,6 +47,8 @@ from ..core.session import (
     toggle_selection,
 )
 from ..core.tags import CLASS_TAGS, topic_vocabulary
+
+ADDON = __name__.split(".")[0]
 
 
 class _NoWheelComboBox(QComboBox):
@@ -86,6 +90,19 @@ class MineWizard(QDialog):
         page = QWidget(self)
         layout = QVBoxLayout(page)
 
+        # Shown until a native language is configured; Mine saves the choice.
+        self._language_row = QWidget(page)
+        language_layout = QHBoxLayout(self._language_row)
+        language_layout.setContentsMargins(0, 0, 0, 0)
+        language_layout.addWidget(QLabel("Your native language:"))
+        self._language_box = QComboBox(self._language_row)
+        self._language_box.addItem("— Choose —", "")
+        for code, language in NATIVE_LANGUAGES.items():
+            self._language_box.addItem(language.label, code)
+        language_layout.addWidget(self._language_box, stretch=1)
+        layout.addWidget(self._language_row)
+        self._language_row.setVisible(not self._cfg.native_language)
+
         layout.addWidget(QLabel("Paste the list of the day, one item per line:"))
         self._words_edit = QTextEdit(page)
         layout.addWidget(self._words_edit)
@@ -118,15 +135,28 @@ class MineWizard(QDialog):
         # Read on open and again before every mining run: the wizard is
         # non-modal, so the user may fix the key or switch provider in
         # Tools → Sea Minerator settings… while it stays open.
-        config = mw.addonManager.getConfig(__name__.split(".")[0]) or {}
+        config = mw.addonManager.getConfig(ADDON) or {}
         try:
             self._cfg = config_from_dict(config)
             self._config_error = None
         except ConfigError as exc:
             # The review screen still needs colors and a deck list, so keep
             # the previous (or default) config; mining is refused until the
-            # config is fixed.
+            # config is fixed. The stored language is kept too, so a broken
+            # provider never makes the wizard ask for it again.
+            self._cfg = replace(
+                self._cfg, native_language=display_config(config).native_language
+            )
             self._config_error = str(exc)
+
+    def _sync_language_row(self) -> None:
+        # Shown whenever no language is configured, also after it was
+        # cleared in settings while this wizard stayed open. A choice left in
+        # the hidden combo is reset, so it is never saved without being seen.
+        missing = not self._cfg.native_language
+        if missing and self._language_row.isHidden():
+            self._language_box.setCurrentIndex(0)
+        self._language_row.setVisible(missing)
 
     def _config_problem(self, message: str) -> None:
         # The settings dialog shows what is missing; `message` is kept for
@@ -135,14 +165,21 @@ class MineWizard(QDialog):
 
         if open_settings(self):
             self._reload_config()
+            self._sync_language_row()
 
     def _start_mining(self) -> None:
         words = parse_word_list(self._words_edit.toPlainText())
-        error = start_error(words, self._deck_box.currentText())
+        # Reloaded first: the language may have been chosen in the settings
+        # dialog while this non-modal wizard stayed open.
+        self._reload_config()
+        self._sync_language_row()
+        language = self._cfg.native_language or self._language_box.currentData()
+        error = start_error(words, self._deck_box.currentText(), language)
         if error:
             showWarning(error, parent=self)
             return
-        self._reload_config()
+        if not self._cfg.native_language:
+            self._save_native_language(language)
         if self._config_error:
             self._config_problem(self._config_error)
             return
@@ -152,16 +189,7 @@ class MineWizard(QDialog):
             self._config_problem(str(exc))
             return
 
-        try:
-            prompt = load_prompt(self._cfg.prompt_path)
-        except Exception as exc:
-            showWarning(
-                f"Could not start mining: {exc}\n\n"
-                f"Check the prompt file configured at '{self._cfg.prompt_path}'.",
-                parent=self,
-                textFormat="plain",
-            )
-            return
+        prompt = prompt_for(self._cfg)
 
         # The collection's tags only refine the topic names Gemini is offered;
         # if they can't be read, mining still works with the base topics.
@@ -183,6 +211,14 @@ class MineWizard(QDialog):
         op.without_collection().with_progress(
             f"Mining {len(words)} item(s)…"
         ).run_in_background()
+
+    def _save_native_language(self, code: str) -> None:
+        # Written into the stored dict, not rebuilt from self._cfg: a broken
+        # provider block must not cost the user any other stored value.
+        stored = mw.addonManager.getConfig(ADDON) or {}
+        mw.addonManager.writeConfig(ADDON, with_native_language(stored, code))
+        self._reload_config()
+        self._sync_language_row()
 
     def _on_mining_failed(self, exc: Exception) -> None:
         if self._closed:

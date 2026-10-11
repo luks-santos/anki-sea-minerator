@@ -1,10 +1,14 @@
+import pytest
+
 from seaminerator.core.config import Config, ProviderSettings, default_providers
 from seaminerator.core.settings import (
     KEY_MASK,
     form_to_config,
     mask_keys,
     model_choices,
+    prompt_status,
     settings_from_form,
+    store_prompt,
     unmask_keys,
     validate,
     visible_fields,
@@ -35,7 +39,7 @@ def test_form_to_config_keeps_every_provider_block():
         "sk-typed", "gpt", "https://api.openai.com/v1"
     )
 
-    cfg = form_to_config("gemini", providers, "English", "en_US", "#000000", "")
+    cfg = form_to_config("gemini", providers, "English", "en_US", "#000000")
 
     assert cfg.provider == "gemini"
     assert cfg.providers["openai"].api_key == "sk-typed"
@@ -49,14 +53,14 @@ def test_validate_reports_a_missing_key_for_a_provider_that_needs_one():
 def test_validate_accepts_a_keyless_local_provider_with_a_model():
     providers = default_providers()
     providers["local"] = ProviderSettings(None, "llama3.1", "http://localhost:11434/v1")
-    cfg = form_to_config("local", providers, "", "en_US", "#2563eb", "")
+    cfg = form_to_config("local", providers, "", "en_US", "#2563eb")
     assert validate(cfg) == []
 
 
 def test_validate_reports_an_empty_model_and_a_bad_url():
     providers = default_providers()
     providers["openai"] = ProviderSettings("sk", "", "api.openai.com")
-    cfg = form_to_config("openai", providers, "", "en_US", "#2563eb", "")
+    cfg = form_to_config("openai", providers, "", "en_US", "#2563eb")
     assert validate(cfg) == [
         "Choose a model for OpenAI & compatible.",
         "The base URL must start with http:// or https://.",
@@ -122,7 +126,6 @@ def test_form_to_config_reads_comma_separated_voices_and_the_speed():
         "",
         "en_US",
         "#2563eb",
-        "",
         tts_voices=" Microsoft_Zira, ,Apple_Samantha,",
         tts_speed=0.9,
     )
@@ -143,3 +146,50 @@ def test_voice_choices_lists_each_voice_of_the_language_once_sorted():
 
 def test_voice_choices_is_empty_without_voices_for_the_language():
     assert voice_choices([("Microsoft_Zira", "en_US")], "pt_BR") == []
+
+
+def test_form_to_config_carries_the_language_and_prompts():
+    prompts = {"es": "Mi prompt"}
+
+    cfg = form_to_config(
+        "gemini",
+        default_providers(),
+        "",
+        "en_US",
+        "#2563eb",
+        native_language="es",
+        prompts=prompts,
+    )
+
+    assert cfg.native_language == "es"
+    assert cfg.prompts == {"es": "Mi prompt"}
+    assert cfg.prompts is not prompts
+
+
+def test_store_prompt_keeps_an_edit():
+    assert store_prompt({}, "es", "Mi prompt", "Default") == {"es": "Mi prompt"}
+
+
+def test_store_prompt_removes_an_edit_equal_to_the_default():
+    # Surrounding whitespace doesn't make an edit: storing the default would
+    # pin the user to it when a later version improves it.
+    stored = store_prompt(
+        {"es": "old", "fr": "x"}, "es", "\n  Default\n\n", "Default\n"
+    )
+    assert stored == {"fr": "x"}
+
+
+def test_store_prompt_rejects_blank_text():
+    with pytest.raises(ValueError, match="can't be empty"):
+        store_prompt({"es": "old"}, "es", " \n ", "Default")
+
+
+def test_store_prompt_does_not_change_its_input():
+    prompts = {"es": "old"}
+    store_prompt(prompts, "es", "new", "Default")
+    assert prompts == {"es": "old"}
+
+
+def test_prompt_status_follows_the_text():
+    assert prompt_status("Default\n", "Default") == "Default"
+    assert prompt_status("Mine", "Default") == "Customized"

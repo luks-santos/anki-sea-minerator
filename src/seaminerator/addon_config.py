@@ -9,8 +9,9 @@ from .core.config import (
     ProviderSettings,
     voice_names,
 )
+from .core.languages import NATIVE_LANGUAGES
 
-_TOP_LEVEL_STRINGS = ("default_deck", "tts_lang", "highlight_color", "prompt_path")
+_TOP_LEVEL_STRINGS = ("default_deck", "tts_lang", "highlight_color")
 
 
 def config_from_dict(data: dict) -> Config:
@@ -57,6 +58,8 @@ def config_from_dict(data: dict) -> Config:
         providers=providers,
         tts_voices=voices,
         tts_speed=speed,
+        native_language=_native_language(data),
+        prompts=_prompts(data),
         **values,
     )
 
@@ -79,15 +82,54 @@ def _voice(data: dict) -> tuple[tuple[str, ...], float]:
     return voice_names(voices), float(speed)
 
 
+def _native_language(data: dict) -> str:
+    code = data.get("native_language", "")
+    if not isinstance(code, str) or (code and code not in NATIVE_LANGUAGES):
+        raise ConfigError(f"unknown native language {code!r}")
+    return code
+
+
+def _prompts(data: dict) -> dict[str, str]:
+    prompts = data.get("prompts", {})
+    if not isinstance(prompts, dict):
+        raise ConfigError("'prompts' must be an object of prompt texts")
+    result: dict[str, str] = {}
+    for code, text in prompts.items():
+        if code not in NATIVE_LANGUAGES:
+            raise ConfigError(f"'prompts' has an unknown language {code!r}")
+        if not isinstance(text, str):
+            raise ConfigError(f"the prompt for {code!r} must be text")
+        # A blank edit means "no edit": the default prompt applies.
+        if text.strip():
+            result[code] = text
+    return result
+
+
+def with_native_language(data: dict, code: str) -> dict:
+    """The stored config with only the native language changed.
+
+    Works on the raw dict, so saving the choice from the mining screen keeps
+    every other key as stored, even in a config that doesn't parse.
+    """
+    updated = dict(data)
+    updated["native_language"] = code
+    return updated
+
+
 def display_config(data: dict) -> Config:
     """The config for screens that don't need a working AI provider.
 
-    A broken provider block must not reset tts_lang, the voice or
-    default_deck to defaults: importing would then rewrite the note type's
-    audio.
+    A broken provider block must not reset tts_lang, the voice,
+    default_deck, the native language or the edited prompts to defaults:
+    importing would then rewrite the note type's audio.
     """
+    # Unreadable language settings are dropped before parsing, so they never
+    # cost the provider blocks: Save would otherwise wipe every API key.
+    repaired = dict(data)
+    repaired["native_language"] = _readable_language(data)
+    repaired["prompts"] = _readable_prompts(data)
     try:
-        return config_from_dict(data)
+        return config_from_dict(repaired)
     except ConfigError:
         values = {
             name: data[name]
@@ -98,7 +140,32 @@ def display_config(data: dict) -> Config:
             voices, speed = _voice(data)
         except ConfigError:
             voices, speed = Config().tts_voices, Config().tts_speed
-        return Config(tts_voices=voices, tts_speed=speed, **values)
+        return Config(
+            tts_voices=voices,
+            tts_speed=speed,
+            native_language=repaired["native_language"],
+            prompts=repaired["prompts"],
+            **values,
+        )
+
+
+def _readable_language(data: dict) -> str:
+    try:
+        return _native_language(data)
+    except ConfigError:
+        return ""
+
+
+def _readable_prompts(data: dict) -> dict[str, str]:
+    # Entry by entry: one bad entry must not cost the user's other edits.
+    prompts = data.get("prompts", {})
+    if not isinstance(prompts, dict):
+        return {}
+    return {
+        code: text
+        for code, text in prompts.items()
+        if code in NATIVE_LANGUAGES and isinstance(text, str) and text.strip()
+    }
 
 
 def config_to_dict(config: Config) -> dict:
@@ -117,5 +184,6 @@ def config_to_dict(config: Config) -> dict:
         "tts_voices": list(config.tts_voices),
         "tts_speed": config.tts_speed,
         "highlight_color": config.highlight_color,
-        "prompt_path": config.prompt_path,
+        "native_language": config.native_language,
+        "prompts": dict(config.prompts),
     }

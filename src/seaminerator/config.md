@@ -1,9 +1,18 @@
 # Sea Minerator
 
-Use **Tools → Sea Minerator settings…** (or the Config button here) to pick a
-provider, paste its API key, choose a model and test the connection. Editing
-this JSON directly is only needed for `prompt_path`.
+Use **Tools → Sea Minerator settings…** (or the Config button here) to pick
+your native language, edit the mining prompt, pick a provider, paste its API
+key, choose a model and test the connection. Every option below can be set
+there; editing this JSON directly is never required.
 
+- `native_language` — your language, as a code: `pt-BR`, `pt-PT`, `es`, `fr`,
+  `de`, `it`, `nl`, `pl`, `ru`, `uk`, `tr`, `ar`, `hi`, `id`, `vi`, `th`,
+  `ja`, `ko`, `zh-CN` or `zh-TW`. Explanations and translations of mined words
+  are written in it. Blank until chosen; the mining screen asks for it.
+- `prompts` — mining prompts you edited, by language code, e.g.
+  `{"es": "…"}`. A language without an entry uses its default prompt: a tuned
+  one for `pt-BR`, a generic one for the others. The response format and the
+  grammar class and topic rules are always added after it.
 - `provider` — `gemini`, `openai` (OpenAI and compatible services such as
   OpenRouter or Groq, with a model that supports `json_schema` structured
   outputs), `anthropic`, or `local` (Ollama at `http://localhost:11434/v1`,
@@ -19,6 +28,3 @@ this JSON directly is only needed for `prompt_path`.
   dialog lists this computer's voices and can preview them.
 - `tts_speed` — speaking speed from `0.5` to `2.0`; `1.0` is normal.
 - `highlight_color` — CSS color for the studied expression on the front.
-- `prompt_path` — path to a file overriding the built-in mining prompt.
-  Blank uses the built-in prompt. The grammar class and topic rules are always
-  appended to it, and the response format is fixed by the add-on.

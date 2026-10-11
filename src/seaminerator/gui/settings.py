@@ -35,6 +35,7 @@ from ..core.config import (
     ProviderSettings,
     voice_names,
 )
+from ..core.languages import NATIVE_LANGUAGES
 from ..core.settings import (
     form_to_config,
     mask_keys,
@@ -45,6 +46,7 @@ from ..core.settings import (
     visible_fields,
     voice_choices,
 )
+from .prompt_editor import PromptEditor
 from .voices import installed_voices, preview
 
 ADDON = __name__.split(".")[0]
@@ -76,8 +78,28 @@ class SettingsDialog(QDialog):
         # the dropdown back and forth never loses a typed key.
         self._blocks: dict[str, ProviderSettings] = dict(self._cfg.providers)
         self._current = self._cfg.provider
+        # Prompt edits live here until Save, like the provider blocks:
+        # switching the language back and forth never loses one.
+        self._prompts: dict[str, str] = dict(self._cfg.prompts)
 
         form = QFormLayout()
+
+        self._language_box = QComboBox()
+        self._language_box.addItem("— Choose —", "")
+        for code, language in NATIVE_LANGUAGES.items():
+            self._language_box.addItem(language.label, code)
+        self._prompt_button = QPushButton("Edit prompt…")
+        self._prompt_button.clicked.connect(self._edit_prompt)
+        self._language_box.currentIndexChanged.connect(
+            lambda _index: self._prompt_button.setEnabled(
+                bool(self._language_box.currentData())
+            )
+        )
+        language_row = QHBoxLayout()
+        language_row.addWidget(self._language_box, stretch=1)
+        language_row.addWidget(self._prompt_button)
+        form.addRow("Native language:", language_row)
+        self._show_language(self._cfg.native_language)
 
         self._provider_box = QComboBox()
         for provider_id, info in PROVIDERS.items():
@@ -214,6 +236,17 @@ class SettingsDialog(QDialog):
         self._current = self._provider_box.currentData()
         self._show_block(self._current)
 
+    def _show_language(self, code: str) -> None:
+        self._language_box.setCurrentIndex(self._language_box.findData(code))
+        # setCurrentIndex emits nothing when the index doesn't change.
+        self._prompt_button.setEnabled(bool(code))
+
+    def _edit_prompt(self) -> None:
+        editor = PromptEditor(self, self._language_box.currentData(), self._prompts)
+        if editor.exec():
+            self._prompts = editor.prompts
+        editor.deleteLater()
+
     def _form_config(self) -> Config:
         self._store_block()
         return form_to_config(
@@ -222,9 +255,10 @@ class SettingsDialog(QDialog):
             self._deck_box.currentText(),
             self._tts_edit.text(),
             self._color_edit.text(),
-            self._cfg.prompt_path,
             tts_voices=self._voice_box.currentText(),
             tts_speed=self._speed_box.value(),
+            native_language=self._language_box.currentData(),
+            prompts=self._prompts,
         )
 
     def _show_voice(self, cfg: Config) -> None:
@@ -317,6 +351,7 @@ class SettingsDialog(QDialog):
             self._cfg = editor.result_config
             self._blocks = dict(self._cfg.providers)
             self._current = self._cfg.provider
+            self._prompts = dict(self._cfg.prompts)
             # Without blocking, setCurrentIndex fires _on_provider_changed,
             # which would store the form (still showing the old provider)
             # into the new provider's block and overwrite the JSON edit.
@@ -330,10 +365,11 @@ class SettingsDialog(QDialog):
             self._tts_edit.setText(self._cfg.tts_lang)
             self._show_voice(self._cfg)
             self._color_edit.setText(self._cfg.highlight_color)
+            self._show_language(self._cfg.native_language)
 
 
 class _JsonEditor(QDialog):
-    """Raw JSON for advanced options such as `prompt_path`.
+    """Raw JSON for every option, including edited prompts.
 
     Anki's own `aqt.addons.ConfigEditor` needs the Add-ons dialog as its
     parent, so this is a minimal stand-in that validates before accepting.

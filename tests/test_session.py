@@ -134,15 +134,29 @@ def test_parse_word_list_of_empty_text_is_empty():
 
 
 def test_start_error_requires_at_least_one_word():
-    assert "at least one word" in start_error(words=[], deck="English")
+    assert "at least one word" in start_error(
+        words=[], deck="English", native_language="pt-BR"
+    )
 
 
 def test_start_error_requires_a_deck():
-    assert "deck" in start_error(words=["a"], deck="")
+    assert "deck" in start_error(words=["a"], deck="", native_language="pt-BR")
+
+
+def test_start_error_requires_a_native_language():
+    assert (
+        start_error(words=["a"], deck="English", native_language="")
+        == "Choose your native language."
+    )
+
+
+def test_start_error_reports_missing_words_and_deck_before_the_language():
+    assert "at least one word" in start_error(words=[], deck="", native_language="")
+    assert "deck" in start_error(words=["a"], deck="", native_language="")
 
 
 def test_start_error_is_none_when_everything_is_set():
-    assert start_error(words=["a"], deck="English") is None
+    assert start_error(words=["a"], deck="English", native_language="pt-BR") is None
 
 
 def test_toggle_selection_adds_and_removes_an_index():

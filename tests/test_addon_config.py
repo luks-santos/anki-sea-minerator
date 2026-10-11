@@ -7,6 +7,7 @@ from seaminerator.addon_config import (
     config_from_dict,
     config_to_dict,
     display_config,
+    with_native_language,
 )
 from seaminerator.core.config import Config, ConfigError, ProviderSettings
 
@@ -200,3 +201,139 @@ def test_display_config_drops_invalid_voice_settings_of_a_broken_config():
     cfg = display_config({"tts_voices": "x", "tts_speed": 9})
     assert cfg.tts_voices == ()
     assert cfg.tts_speed == 1.0
+
+
+def test_reads_the_native_language_and_edited_prompts():
+    data = shipped()
+    data["native_language"] = "ja"
+    data["prompts"] = {"ja": "日本語で説明して", "es": "Explica en español"}
+
+    cfg = config_from_dict(data)
+
+    assert cfg.native_language == "ja"
+    assert cfg.prompts == {"ja": "日本語で説明して", "es": "Explica en español"}
+
+
+def test_config_to_dict_round_trips_the_language_and_prompts():
+    data = shipped()
+    data["native_language"] = "zh-TW"
+    data["prompts"] = {"zh-TW": "用繁體中文解釋 {braces}"}
+    cfg = config_from_dict(data)
+
+    # Through real JSON, as Anki stores it.
+    stored = json.loads(json.dumps(config_to_dict(cfg)))
+
+    assert config_from_dict(stored) == cfg
+
+
+def test_missing_language_settings_use_the_defaults():
+    # Configs saved before this version lack both keys.
+    data = shipped()
+    del data["native_language"], data["prompts"]
+
+    cfg = config_from_dict(data)
+
+    assert cfg.native_language == ""
+    assert cfg.prompts == {}
+
+
+@pytest.mark.parametrize("code", ["en", "pt_BR", "xx", 5, None])
+def test_unknown_native_language_is_a_config_error(code):
+    data = shipped()
+    data["native_language"] = code
+    with pytest.raises(ConfigError, match="native language"):
+        config_from_dict(data)
+
+
+@pytest.mark.parametrize("prompts", ["text", ["a"], None, {"xx": "text"}, {"es": 5}])
+def test_malformed_prompts_are_a_config_error(prompts):
+    data = shipped()
+    data["prompts"] = prompts
+    with pytest.raises(ConfigError, match="prompt"):
+        config_from_dict(data)
+
+
+def test_blank_prompt_entries_are_dropped():
+    data = shipped()
+    data["prompts"] = {"es": "  \n", "fr": "Explique en français"}
+    assert config_from_dict(data).prompts == {"fr": "Explique en français"}
+
+
+def test_display_config_keeps_the_language_and_prompts_of_a_broken_config():
+    data = shipped()
+    data["provider"] = "nope"
+    data["native_language"] = "es"
+    data["prompts"] = {"es": "Mi prompt"}
+
+    cfg = display_config(data)
+
+    assert cfg.native_language == "es"
+    assert cfg.prompts == {"es": "Mi prompt"}
+
+
+def test_display_config_drops_an_unknown_language_of_a_broken_config():
+    data = shipped()
+    data["native_language"] = "xx"
+    data["prompts"] = {"es": 5}
+    data["default_deck"] = "Grammar"
+
+    cfg = display_config(data)
+
+    assert cfg.native_language == ""
+    assert cfg.prompts == {}
+    assert cfg.default_deck == "Grammar"
+
+
+def test_display_config_keeps_the_providers_when_only_the_language_is_unreadable():
+    # Settings would otherwise open with blank keys, and Save would wipe them.
+    data = shipped()
+    data["providers"]["anthropic"]["api_key"] = "kept"
+    data["provider"] = "anthropic"
+    data["native_language"] = "xx"
+
+    cfg = display_config(data)
+
+    assert cfg.provider == "anthropic"
+    assert cfg.providers["anthropic"].api_key == "kept"
+    assert cfg.native_language == ""
+
+
+def test_display_config_keeps_every_readable_prompt():
+    data = shipped()
+    data["prompts"] = {"es": "Mi prompt", "en": "x", "fr": 5}
+
+    cfg = display_config(data)
+
+    assert cfg.prompts == {"es": "Mi prompt"}
+
+
+def test_display_config_keeps_the_readable_prompts_of_a_broken_provider():
+    data = shipped()
+    data["provider"] = "nope"
+    data["prompts"] = {"es": "Mi prompt", "en": "x"}
+
+    assert display_config(data).prompts == {"es": "Mi prompt"}
+
+
+def test_with_native_language_changes_only_that_key():
+    # A stored config that doesn't parse: the choice must still be saved
+    # without touching anything else.
+    data = {"provider": "nope", "default_deck": "Grammar"}
+
+    updated = with_native_language(data, "es")
+
+    assert updated == {
+        "provider": "nope",
+        "default_deck": "Grammar",
+        "native_language": "es",
+    }
+    assert "native_language" not in data
+
+
+def test_a_stale_prompt_path_is_ignored():
+    # Configs saved before this version still carry it.
+    data = shipped()
+    data["prompt_path"] = "C:/old/prompt.txt"
+
+    assert config_from_dict(data) == Config()
+    assert "prompt_path" not in config_to_dict(Config())
