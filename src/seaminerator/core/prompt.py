@@ -2,9 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from .languages import NATIVE_LANGUAGES
 from .tags import CLASS_TAGS
 
-DEFAULT_PROMPT = """\
+# The prompt's body: the only part a user can edit. The response format and
+# the tagging rules are appended by build_request, so no edit can break them.
+PT_BR_PROMPT = """\
 You are an English teacher specialized in linguistics and Anki flashcard creation.
 You will receive a "list of the day" with English words or expressions.
 
@@ -22,14 +25,45 @@ For EACH item, produce data following these rules:
   (https://www.dkefe.com/en) and Reverso Context. For each sentence also give the
   exact substring to highlight (the studied expression as it literally appears in
   that sentence, including inflection) and a short English usage note.
+"""
 
+# For languages without a dedicated prompt. Cambridge stays the definition
+# source (the studied language is always English); Reverso is only an example
+# because it doesn't cover every language.
+PROMPT_TEMPLATE = """\
+You are an English teacher specialized in linguistics and Anki flashcard creation.
+You will receive a "list of the day" with English words or expressions.
+
+For EACH item, produce data following these rules:
+- Explanation: 2-3 lines, simple and direct meaning. State the grammatical class
+  and one relevant rule/peculiarity (irregular verb + past, accompanying
+  preposition, countable/uncountable). Base definitions on the Cambridge
+  Dictionary (https://dictionary.cambridge.org/). Write the explanation in
+  {native_language}.
+- Translations: the most common {native_language} translations, based on
+  bilingual dictionaries and parallel-text resources such as Reverso Context
+  (https://context.reverso.net/).
+- Class tag and topics: follow the tagging rules given after these instructions.
+- Sentences: exactly 5 natural English sentences, each 20 to 50 characters,
+  authentic to everyday speech, drawing on Cambridge Dictionary, DK EFE
+  (https://www.dkefe.com/en) and Reverso Context. For each sentence also give the
+  exact substring to highlight (the studied expression as it literally appears in
+  that sentence, including inflection) and a short English usage note.
+"""
+
+DEDICATED_PROMPTS: dict[str, str] = {"pt-BR": PT_BR_PROMPT}
+
+# Every provider enforces the JSON schema through its API; the example only
+# guides quality. Explanation and translations are left as "..." so the
+# example carries no language into the others.
+RESPONSE_FORMAT = """\
 Respond ONLY with JSON (no markdown fences) matching this schema:
 {
   "words": [
     {
       "expression": "give up",
       "explanation": "...",
-      "translations": ["Desistir", "Parar"],
+      "translations": ["...", "..."],
       "class_tag": "phrasal-verb",
       "sentences": [
         {
@@ -47,8 +81,17 @@ Respond ONLY with JSON (no markdown fences) matching this schema:
       ]
     }
   ]
-}
-"""
+}"""
+
+
+def default_prompt(code: str) -> str:
+    # KeyError for "" or an unknown code: callers check that a language is
+    # chosen, and silently picking one would mine in the wrong language.
+    language = NATIVE_LANGUAGES[code]
+    if code in DEDICATED_PROMPTS:
+        return DEDICATED_PROMPTS[code]
+    # replace, not format: any other brace in the text stays inert.
+    return PROMPT_TEMPLATE.replace("{native_language}", language.english_name)
 
 
 _TAGGING_RULES = """\
@@ -98,4 +141,4 @@ def load_prompt(path: str | None) -> str:
         p = Path(path)
         if p.is_file():
             return p.read_text(encoding="utf-8")
-    return DEFAULT_PROMPT
+    return PT_BR_PROMPT

@@ -3,7 +3,7 @@ import pytest
 from seaminerator.core.ai.base import AIError, MiningRequest
 from seaminerator.core.ai.schema import mining_schema
 from seaminerator.core.mining import build_request, mine_words
-from seaminerator.core.prompt import tagging_instructions
+from seaminerator.core.prompt import RESPONSE_FORMAT, tagging_instructions
 
 PAYLOAD = {
     "words": [
@@ -33,12 +33,16 @@ class FakeProvider:
         return []
 
 
-def test_build_request_assembles_prompt_rules_and_list():
-    request = build_request(["give up", "whale"], "RULES", ["past-simple"])
+def test_build_request_assembles_body_format_rules_and_list():
+    # The body never mentions JSON: the format is the code's job, so an
+    # edited prompt can't drop it.
+    request = build_request(["give up", "whale"], "BODY\n", ["past-simple"])
 
     assert request == MiningRequest(
         text=(
-            "RULES\n\n"
+            "BODY\n\n"
+            + RESPONSE_FORMAT
+            + "\n\n"
             + tagging_instructions(["past-simple"])
             + "\n\nList of the day:\ngive up\nwhale"
         ),
