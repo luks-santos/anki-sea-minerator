@@ -41,12 +41,14 @@ from ..core.session import (
     apply_class_overrides,
     count_selected,
     default_selection,
+    failure_lines,
     parse_word_list,
     selected_sentences,
     sentence_details,
     start_error,
     summarize,
     toggle_selection,
+    warning_lines,
 )
 from ..core.tags import CLASS_TAGS, topic_vocabulary
 from .recording import record_then
@@ -474,7 +476,13 @@ class MineWizard(QDialog):
         layout.addWidget(QLabel(headline))
 
         note = stopped_note(self._run)
-        lines = ([note] if note else []) + summary.warnings
+        # Each line names its card, so the user knows which ones fell back
+        # to the system voice or failed.
+        lines = (
+            ([note] if note else [])
+            + failure_lines(self._results)
+            + warning_lines(self._results)
+        )
         if lines:
             warnings = QTextEdit(page)
             warnings.setReadOnly(True)
