@@ -3,7 +3,8 @@ from __future__ import annotations
 import copy
 from collections.abc import Iterable
 
-from .config import PROVIDERS, Config, ProviderSettings, voice_names
+from .audio.options import GEMINI_KEY_MESSAGE
+from .config import PROVIDERS, AudioSettings, Config, ProviderSettings, voice_names
 
 # Shown in the Advanced… JSON instead of a stored key; left untouched, it
 # means "keep the key", so the raw editor never displays secrets.
@@ -49,6 +50,7 @@ def form_to_config(
     tts_speed: float = 1.0,
     native_language: str = "",
     prompts: dict[str, str] | None = None,
+    audio: AudioSettings | None = None,
 ) -> Config:
     return Config(
         provider=provider,
@@ -60,6 +62,7 @@ def form_to_config(
         highlight_color=highlight_color.strip(),
         native_language=native_language,
         prompts=dict(prompts or {}),
+        audio=audio or AudioSettings(),
     )
 
 
@@ -73,6 +76,13 @@ def validate(config: Config) -> list[str]:
         problems.append(f"Choose a model for {info.display_name}.")
     if not settings.base_url.startswith(("http://", "https://")):
         problems.append("The base URL must start with http:// or https://.")
+    if config.audio.source == "gemini":
+        if not config.providers["gemini"].api_key:
+            problems.append(GEMINI_KEY_MESSAGE)
+        if not config.audio.gemini_voice.strip():
+            problems.append("Choose a Gemini voice.")
+        if not config.audio.gemini_model.strip():
+            problems.append("Choose a Gemini TTS model.")
     return problems
 
 

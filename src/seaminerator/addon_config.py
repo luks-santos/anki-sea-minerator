@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from .core.audio.options import AUDIO_SOURCES, GOOGLE_ACCENTS
 from .core.config import (
     PROVIDERS,
     TTS_SPEED_MAX,
     TTS_SPEED_MIN,
+    AudioSettings,
     Config,
     ConfigError,
     ProviderSettings,
@@ -60,6 +62,7 @@ def config_from_dict(data: dict) -> Config:
         tts_speed=speed,
         native_language=_native_language(data),
         prompts=_prompts(data),
+        audio=_audio(data),
         **values,
     )
 
@@ -116,18 +119,72 @@ def with_native_language(data: dict, code: str) -> dict:
     return updated
 
 
+def _audio(data: dict) -> AudioSettings:
+    block = data.get("audio", {})
+    if not isinstance(block, dict):
+        raise ConfigError("'audio' must be an object")
+    defaults = AudioSettings()
+    source = block.get("source", defaults.source)
+    if not isinstance(source, str) or source not in AUDIO_SOURCES:
+        raise ConfigError(f"unknown audio source {source!r}")
+    google = _audio_block(block, "google")
+    gemini = _audio_block(block, "gemini")
+    accent = google.get("accent", defaults.google_accent)
+    if not isinstance(accent, str) or accent not in GOOGLE_ACCENTS:
+        raise ConfigError(f"unknown Google Translate accent {accent!r}")
+    return AudioSettings(
+        source=source,
+        google_accent=accent,
+        gemini_voice=_gemini_text(gemini, "voice", defaults.gemini_voice),
+        gemini_model=_gemini_text(gemini, "model", defaults.gemini_model),
+    )
+
+
+def _audio_block(block: dict, name: str) -> dict:
+    # A stored "audio" replaces the shipped one wholesale (Anki merges only
+    # top-level keys), so a missing sub-block or key takes its default.
+    sub = block.get(name, {})
+    if not isinstance(sub, dict):
+        raise ConfigError(f"'audio.{name}' must be an object")
+    return sub
+
+
+def _gemini_text(block: dict, key: str, default: str) -> str:
+    value = block.get(key, default)
+    if not isinstance(value, str) or not value.strip():
+        raise ConfigError(f"the Gemini {key} must be text")
+    return value.strip()
+
+
+def _audio_dict(audio: AudioSettings) -> dict:
+    return {
+        "source": audio.source,
+        "google": {"accent": audio.google_accent},
+        "gemini": {"voice": audio.gemini_voice, "model": audio.gemini_model},
+    }
+
+
+def _readable_audio(data: dict) -> AudioSettings:
+    try:
+        return _audio(data)
+    except ConfigError:
+        return AudioSettings()
+
+
 def display_config(data: dict) -> Config:
     """The config for screens that don't need a working AI provider.
 
     A broken provider block must not reset tts_lang, the voice,
-    default_deck, the native language or the edited prompts to defaults:
-    importing would then rewrite the note type's audio.
+    default_deck, the native language, the edited prompts or the audio
+    settings to defaults: importing would then rewrite the note type's audio.
     """
-    # Unreadable language settings are dropped before parsing, so they never
-    # cost the provider blocks: Save would otherwise wipe every API key.
+    # Unreadable language and audio settings are dropped before parsing, so
+    # they never cost the provider blocks: Save would otherwise wipe every
+    # API key.
     repaired = dict(data)
     repaired["native_language"] = _readable_language(data)
     repaired["prompts"] = _readable_prompts(data)
+    repaired["audio"] = _audio_dict(_readable_audio(data))
     try:
         return config_from_dict(repaired)
     except ConfigError:
@@ -145,6 +202,7 @@ def display_config(data: dict) -> Config:
             tts_speed=speed,
             native_language=repaired["native_language"],
             prompts=repaired["prompts"],
+            audio=_readable_audio(data),
             **values,
         )
 
@@ -186,4 +244,5 @@ def config_to_dict(config: Config) -> dict:
         "highlight_color": config.highlight_color,
         "native_language": config.native_language,
         "prompts": dict(config.prompts),
+        "audio": _audio_dict(config.audio),
     }

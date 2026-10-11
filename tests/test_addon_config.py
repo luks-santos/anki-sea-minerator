@@ -9,7 +9,12 @@ from seaminerator.addon_config import (
     display_config,
     with_native_language,
 )
-from seaminerator.core.config import Config, ConfigError, ProviderSettings
+from seaminerator.core.config import (
+    AudioSettings,
+    Config,
+    ConfigError,
+    ProviderSettings,
+)
 
 SHIPPED = Path(__file__).parent.parent / "src" / "seaminerator" / "config.json"
 
@@ -345,3 +350,77 @@ def test_a_stale_prompt_path_is_ignored():
 
     assert config_from_dict(data) == Config()
     assert "prompt_path" not in config_to_dict(Config())
+
+
+def test_reads_a_recorded_audio_source_and_its_settings():
+    data = shipped()
+    data["audio"] = {
+        "source": "gemini",
+        "google": {"accent": "co.uk"},
+        "gemini": {"voice": "Puck", "model": "gemini-x-tts"},
+    }
+
+    assert config_from_dict(data).audio == AudioSettings(
+        source="gemini",
+        google_accent="co.uk",
+        gemini_voice="Puck",
+        gemini_model="gemini-x-tts",
+    )
+
+
+def test_missing_audio_settings_use_the_defaults():
+    data = shipped()
+    del data["audio"]
+    assert config_from_dict(data).audio == AudioSettings()
+
+    data["audio"] = {"source": "google"}
+    assert config_from_dict(data).audio == AudioSettings(source="google")
+
+
+@pytest.mark.parametrize(
+    "audio",
+    [
+        "google",
+        {"source": "edge"},
+        {"source": 5},
+        {"google": {"accent": "com"}},
+        {"google": {"accent": ["us"]}},
+        {"google": "us"},
+        {"gemini": {"voice": ""}},
+        {"gemini": {"model": 5}},
+    ],
+)
+def test_malformed_audio_settings_are_a_config_error(audio):
+    data = shipped()
+    data["audio"] = audio
+    with pytest.raises(ConfigError, match="audio|accent|Gemini"):
+        config_from_dict(data)
+
+
+def test_config_to_dict_round_trips_the_audio_settings():
+    data = shipped()
+    data["audio"] = {"source": "google", "google": {"accent": "ie"}}
+    cfg = config_from_dict(data)
+
+    assert config_from_dict(json.loads(json.dumps(config_to_dict(cfg)))) == cfg
+
+
+def test_display_config_keeps_the_audio_settings_of_a_broken_provider():
+    data = shipped()
+    data["provider"] = "nope"
+    data["audio"] = {"source": "google", "google": {"accent": "ca"}}
+
+    assert display_config(data).audio == AudioSettings(
+        source="google", google_accent="ca"
+    )
+
+
+def test_display_config_drops_only_unreadable_audio_settings():
+    data = shipped()
+    data["providers"]["gemini"]["api_key"] = "kept"
+    data["audio"] = {"source": "edge"}
+
+    cfg = display_config(data)
+
+    assert cfg.audio == AudioSettings()
+    assert cfg.providers["gemini"].api_key == "kept"

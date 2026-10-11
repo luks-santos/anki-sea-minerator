@@ -1,6 +1,12 @@
 import pytest
 
-from seaminerator.core.config import Config, ProviderSettings, default_providers
+from seaminerator.core.audio.options import GEMINI_KEY_MESSAGE
+from seaminerator.core.config import (
+    AudioSettings,
+    Config,
+    ProviderSettings,
+    default_providers,
+)
 from seaminerator.core.settings import (
     KEY_MASK,
     form_to_config,
@@ -193,3 +199,44 @@ def test_store_prompt_does_not_change_its_input():
 def test_prompt_status_follows_the_text():
     assert prompt_status("Default\n", "Default") == "Default"
     assert prompt_status("Mine", "Default") == "Customized"
+
+
+def test_form_to_config_carries_the_audio_settings():
+    audio = AudioSettings(source="google", google_accent="co.in")
+
+    cfg = form_to_config(
+        "gemini", default_providers(), "", "en_US", "#2563eb", audio=audio
+    )
+
+    assert cfg.audio == audio
+
+
+def with_gemini_key(providers):
+    base_url = providers["gemini"].base_url
+    providers["gemini"] = ProviderSettings("g-key", "gemini-2.5-flash", base_url)
+    return providers
+
+
+def test_validate_requires_a_gemini_key_for_gemini_audio():
+    providers = default_providers()
+    providers["openai"] = ProviderSettings("sk", "gpt", "https://api.openai.com/v1")
+    audio = AudioSettings(source="gemini")
+
+    without_key = Config(provider="openai", providers=providers, audio=audio)
+    assert GEMINI_KEY_MESSAGE in validate(without_key)
+
+    with_key = Config(
+        provider="openai", providers=with_gemini_key(providers), audio=audio
+    )
+    assert validate(with_key) == []
+
+
+def test_validate_requires_a_gemini_voice_and_model():
+    audio = AudioSettings(source="gemini", gemini_voice=" ", gemini_model="")
+
+    problems = validate(
+        Config(providers=with_gemini_key(default_providers()), audio=audio)
+    )
+
+    assert "Choose a Gemini voice." in problems
+    assert "Choose a Gemini TTS model." in problems
