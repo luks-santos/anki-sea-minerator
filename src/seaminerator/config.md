@@ -33,9 +33,10 @@ there; editing this JSON directly is never required.
   - `source`: `system` (default: the device's voices through `{{tts}}`),
     `google` (Google Translate, an unofficial endpoint) or `gemini` (Gemini
     TTS with the Gemini provider's API key). The recorded sources store an
-    MP3 per new card in its `Audio` field; when recording fails, the card
-    uses the system voice.
+    MP3 per new card in its `Audio` field. Gemini is backed up by Google
+    Translate; a sentence no source can record uses the system voice.
   - `google.accent`: `us`, `co.uk`, `com.au`, `ca`, `co.in`, `ie` or `co.za`.
+    Also the accent of Gemini's Google Translate backup.
   - `gemini.voice` (e.g. `Kore`, `Puck`) and `gemini.model` (default
     `gemini-3.8-flash-lite-tts`; the 2.5/3.1 TTS models stop working on
     2026-11-17). Gemini audio needs LAME: Anki bundles it on Windows and

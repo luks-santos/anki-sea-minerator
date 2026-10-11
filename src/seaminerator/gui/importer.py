@@ -22,7 +22,7 @@ from ..anki.batch import create_import_batch
 from ..anki.collection_client import CollectionAnkiClient
 from ..anki.notetype import NOTE_TYPE_NAME, ensure_notetype
 from ..core.audio.base import speech_text
-from ..core.audio.recording import RecordingRun, stopped_note
+from ..core.audio.recording import RecordingRun, run_notes
 from ..core.flow import CardResult, ImportPlan, prepare_import
 from ..core.session import failure_lines, import_status, summarize, warning_lines
 from ..core.tags import BASE_TOPICS
@@ -191,9 +191,9 @@ class ImportDialog(QDialog):
         text = f"{summary.created} card(s) created."
         if summary.failed:
             text += f" {summary.failed} failed (see details)."
-        note = stopped_note(self._run)
-        if note:
-            text += f"\n\n{note}"
+        notes = run_notes(self._run)
+        if notes:
+            text += "\n\n" + "\n".join(notes)
         # Details are a scrollable area, so hundreds of lines never push the
         # OK button off-screen; each line names its card.
         details = failure_lines(self._results) + warning_lines(self._results)

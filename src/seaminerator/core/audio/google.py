@@ -51,6 +51,7 @@ def parse_audio(body: str) -> bytes:
 
 class GoogleRecorder:
     source = "google"
+    name = SOURCE
 
     def __init__(
         self,

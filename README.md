@@ -81,9 +81,11 @@ The settings dialog also sets:
 - `audio` — **Audio source**: the system voice (default), or a recording
   made when each card is created, by Google Translate (free, unofficial) or
   Gemini (your Gemini key; free tier limited to about 100 sentences a day).
-  Recorded cards sound the same on every device; if recording fails, the
-  card uses the system voice and the summary says why. Sentences are sent
-  to the chosen service. The first time you pick a recorded source, the
+  Recorded cards sound the same on every device. Gemini is backed up by
+  Google Translate; if no source can record a sentence, its card uses the
+  system voice and the summary says why. Sentences are sent to the chosen
+  service (and, with Gemini, to Google Translate for any Gemini can't
+  record). The first time you pick a recorded source, the
   dialog adds an Audio field to the note type: sync your other devices
   first, because the next sync will be a one-time full sync (choose Upload).
 
@@ -144,11 +146,14 @@ source** in the settings:
 - **Recorded** (Google Translate or Gemini): when a card is created, its
   sentence is recorded to an MP3 stored in the collection's media and in the
   card's **Audio** field, so it sounds the same on every device, AnkiWeb
-  included. If a recording fails (no network, the service is down, a quota
-  is reached), the card is still created and uses the system voice; the
-  summary says which cards and why. Things to know:
-  - Sentences are sent to the chosen service. Google Translate's endpoint is
-    unofficial and may stop working; Gemini uses your Gemini API key, and
+  included. With Gemini, a sentence Gemini can't record (or every sentence
+  after Gemini stops, e.g. when its daily quota is reached) is recorded with
+  Google Translate instead. If no source can record it (no network, the
+  services are down), the card is still created and uses the system voice;
+  the summary says which cards and why. Things to know:
+  - Sentences are sent to the chosen service, and with Gemini to Google
+    Translate for the ones Gemini can't record. Google Translate's endpoint
+    is unofficial and may stop working; Gemini uses your Gemini API key, and
     its free tier allows about 100 sentences a day.
   - Gemini's default TTS model is `gemini-3.8-flash-lite-tts`; the older
     2.5 and 3.1 TTS models stop working on 2026-11-17.

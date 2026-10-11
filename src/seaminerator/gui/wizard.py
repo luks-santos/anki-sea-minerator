@@ -29,7 +29,7 @@ from ..anki.notetype import NOTE_TYPE_NAME, ensure_notetype
 from ..core.ai.base import AIError
 from ..core.ai.registry import build_provider
 from ..core.audio.base import speech_text
-from ..core.audio.recording import RecordingRun, stopped_note
+from ..core.audio.recording import RecordingRun, run_notes
 from ..core.cards import highlight_html
 from ..core.config import Config, ConfigError
 from ..core.flow import CardResult
@@ -475,11 +475,10 @@ class MineWizard(QDialog):
             headline += f" · {summary.failed} failed"
         layout.addWidget(QLabel(headline))
 
-        note = stopped_note(self._run)
         # Each line names its card, so the user knows which ones fell back
         # to the system voice or failed.
         lines = (
-            ([note] if note else [])
+            run_notes(self._run)
             + failure_lines(self._results)
             + warning_lines(self._results)
         )

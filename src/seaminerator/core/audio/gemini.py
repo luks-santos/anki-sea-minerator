@@ -68,6 +68,7 @@ def wav_from_response(data: Any) -> bytes:
 
 class GeminiRecorder:
     source = "gemini"
+    name = SOURCE
 
     def __init__(
         self,

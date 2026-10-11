@@ -19,6 +19,8 @@ class AudioError(Exception):
 
 class Recorder(Protocol):
     source: str
+    # Shown to the user, e.g. in the note about which source took over.
+    name: str
     # What the recording sounds like (accent or voice name); part of the
     # media file name, so a different voice never reuses another's file.
     voice: str

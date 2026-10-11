@@ -33,7 +33,7 @@ from ..core.audio.options import (
     GOOGLE_ACCENTS,
     SOURCE_LABELS,
 )
-from ..core.audio.registry import build_recorder
+from ..core.audio.registry import build_recorders
 from ..core.config import (
     PROVIDERS,
     TTS_SPEED_MAX,
@@ -359,8 +359,12 @@ class SettingsDialog(QDialog):
 
     def _show_source(self, source: str) -> None:
         recorded = source != "system"
+        # Google Translate also backs Gemini up, so its accent shows for both.
         for widget in (self._accent_label, self._accent_box):
-            widget.setVisible(source == "google")
+            widget.setVisible(recorded)
+        self._accent_label.setText(
+            "Backup accent:" if source == "gemini" else "Accent:"
+        )
         for widget in (
             self._gemini_voice_label,
             self._gemini_voice_box,
@@ -380,10 +384,11 @@ class SettingsDialog(QDialog):
         elif source == "gemini":
             note = (
                 "Sentences are sent to Gemini with your Gemini API key when cards "
-                "are created. If it fails, cards use the fallback voice."
+                "are created; any Gemini can't record go to Google Translate (an "
+                "unofficial endpoint). If both fail, cards use the fallback voice."
             )
             if not lame_available():
-                note += " LAME was not found, so Gemini audio will fall back."
+                note += " LAME was not found, so Google Translate will record instead."
         else:
             note = ""
         self._audio_note.setText(note)
@@ -398,12 +403,15 @@ class SettingsDialog(QDialog):
 
     def _preview_recording(self) -> None:
         try:
-            recorder = build_recorder(self._form_config(), encode_mp3)
+            recorders = build_recorders(self._form_config(), encode_mp3)
         except ConfigError as exc:
             self._audio_note.setText(f"✗ {exc}")
             return
-        if recorder is None:
+        if not recorders:
             return
+        # The chosen source itself, without its backup: that's what's
+        # being previewed.
+        recorder = recorders[0]
         self._record_preview.setEnabled(False)
 
         def finished() -> bool:

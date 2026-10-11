@@ -7,7 +7,7 @@ from aqt.operations import QueryOp
 from aqt.qt import QWidget
 
 from ..core.audio.recording import RecordingRun, failed_run, record_all
-from ..core.audio.registry import build_recorder
+from ..core.audio.registry import build_recorders
 from ..core.config import Config, ConfigError
 from .mp3 import encode_mp3
 
@@ -20,16 +20,17 @@ def record_then(
 ) -> None:
     """Record the sentences for a recorded audio source, then call `on_done`.
 
-    `on_done` gets None for the system voice (nothing to record). Recording
+    `on_done` gets None for the system voice (nothing to record). Gemini is
+    backed up by Google Translate (see build_recorders). Recording
     runs without the collection, so Anki stays usable while it waits on the
     network; the caller then creates every card in one CollectionOp.
     """
     try:
-        recorder = build_recorder(cfg, encode_mp3)
+        recorders = build_recorders(cfg, encode_mp3)
     except ConfigError as exc:
         on_done(failed_run(texts, str(exc)))
         return
-    if recorder is None:
+    if not recorders:
         on_done(None)
         return
 
@@ -42,7 +43,7 @@ def record_then(
 
     QueryOp(
         parent=parent,
-        op=lambda _col: record_all(recorder, texts, progress),
+        op=lambda _col: record_all(recorders, texts, progress),
         success=on_done,
     ).failure(
         lambda exc: on_done(failed_run(texts, f"recording failed: {exc}"))
