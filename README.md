@@ -71,7 +71,9 @@ The settings dialog also sets:
 - `tts_voices` and `tts_speed` — the voice and speaking speed. The dialog
   lists this computer's voices for the language, with **▶ Preview**; type a
   phone's voice after a comma so each device uses the first one it has.
-  Like the language, they reach the note type the next time you create or
+  Voices other add-ons register, like AwesomeTTS's, are not supported: they
+  need that add-on's own setup and don't exist on phones.
+  Like `tts_lang`, they reach the note type the next time you create or
   import cards, and then apply to existing cards too.
 - `highlight_color` — the CSS color used for the studied expression.
 

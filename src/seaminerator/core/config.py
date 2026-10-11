@@ -68,10 +68,17 @@ TTS_SPEED_MIN = 0.5
 TTS_SPEED_MAX = 2.0
 
 
+# Voices other add-ons register with Anki. AwesomeTTS's speaks only for
+# languages set up in that add-on and doesn't exist on phones, so a card
+# asking for it gets an error instead of audio.
+UNSUPPORTED_VOICES = frozenset({"AwesomeTTS"})
+
+
 def voice_names(names: Iterable[str]) -> tuple[str, ...]:
     # Anki names voices with underscores ("Microsoft_Zira"), and a space
     # would end the {{tts}} tag's voices= option.
-    return tuple("_".join(name.split()) for name in names if name.strip())
+    spelled = ("_".join(name.split()) for name in names if name.strip())
+    return tuple(name for name in spelled if name not in UNSUPPORTED_VOICES)
 
 
 def default_providers() -> dict[str, ProviderSettings]:

@@ -275,7 +275,10 @@ class SettingsDialog(QDialog):
         # Adding items to an empty editable box selects the first one.
         self._voice_box.setCurrentText(typed)
         if choices:
-            where = "Lists only this computer's voices; add a phone's after a comma."
+            where = (
+                "Lists only this computer's system voices (not other add-ons', "
+                "like AwesomeTTS); add a phone's after a comma."
+            )
         else:
             where = f"No {lang or 'language'} voices found on this computer."
         self._voice_note.setText(
