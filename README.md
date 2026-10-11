@@ -63,6 +63,8 @@ Keys are stored in plain text in Anki's add-on folder.
 
 The settings dialog also sets:
 
+- `native_language` — your language; explanations and translations of mined
+  words are written in it. The mining screen asks for it the first time.
 - `default_deck` — the deck pre-selected in the wizard.
 - `tts_lang` — the language passed to Anki's `{{tts}}` tag, e.g. `en_US`.
   Changing it rewrites the note type's template, which affects existing cards.
@@ -72,12 +74,11 @@ The settings dialog also sets:
   Like the language, they reach the note type the next time you create or
   import cards, and then apply to existing cards too.
 - `highlight_color` — the CSS color used for the studied expression.
-Its **Advanced…** button edits the raw config, the only place for:
-
-- `prompt_path` — a file overriding the built-in mining prompt, if you want to
-  customize how the model is instructed. The grammar class and topic rules are
-  always appended to it, and the response format is fixed by the add-on, so a
-  custom prompt should not describe a `grammar_class` field.
+**Edit prompt…**, next to the native language, shows the prompt the model
+receives for that language and lets you change it; **Reset to default** brings
+back the built-in one. Brazilian Portuguese has a tuned prompt; the other
+languages share a generic one. The response format and the grammar class and
+topic rules are always added after your text, so an edit can't break them.
 
 See `src/seaminerator/config.md` for the full reference.
 

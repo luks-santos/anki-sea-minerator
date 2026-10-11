@@ -1,10 +1,14 @@
+import pytest
+
 from seaminerator.core.config import Config, ProviderSettings, default_providers
 from seaminerator.core.settings import (
     KEY_MASK,
     form_to_config,
     mask_keys,
     model_choices,
+    prompt_status,
     settings_from_form,
+    store_prompt,
     unmask_keys,
     validate,
     visible_fields,
@@ -160,3 +164,32 @@ def test_form_to_config_carries_the_language_and_prompts():
     assert cfg.native_language == "es"
     assert cfg.prompts == {"es": "Mi prompt"}
     assert cfg.prompts is not prompts
+
+
+def test_store_prompt_keeps_an_edit():
+    assert store_prompt({}, "es", "Mi prompt", "Default") == {"es": "Mi prompt"}
+
+
+def test_store_prompt_removes_an_edit_equal_to_the_default():
+    # Surrounding whitespace doesn't make an edit: storing the default would
+    # pin the user to it when a later version improves it.
+    stored = store_prompt(
+        {"es": "old", "fr": "x"}, "es", "\n  Default\n\n", "Default\n"
+    )
+    assert stored == {"fr": "x"}
+
+
+def test_store_prompt_rejects_blank_text():
+    with pytest.raises(ValueError, match="can't be empty"):
+        store_prompt({"es": "old"}, "es", " \n ", "Default")
+
+
+def test_store_prompt_does_not_change_its_input():
+    prompts = {"es": "old"}
+    store_prompt(prompts, "es", "new", "Default")
+    assert prompts == {"es": "old"}
+
+
+def test_prompt_status_follows_the_text():
+    assert prompt_status("Default\n", "Default") == "Default"
+    assert prompt_status("Mine", "Default") == "Customized"

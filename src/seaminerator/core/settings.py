@@ -114,3 +114,31 @@ def model_choices(models: list[str]) -> list[str]:
     # A service whose ids all look non-chat is unusual; show everything
     # rather than an empty list.
     return chat or unique
+
+
+EMPTY_PROMPT_MESSAGE = (
+    "The prompt can't be empty — use Reset to go back to the default."
+)
+
+
+def _is_default(text: str, default: str) -> bool:
+    return text.strip() == default.strip()
+
+
+def store_prompt(
+    prompts: dict[str, str], code: str, text: str, default: str
+) -> dict[str, str]:
+    if not text.strip():
+        raise ValueError(EMPTY_PROMPT_MESSAGE)
+    stored = dict(prompts)
+    if _is_default(text, default):
+        # Storing an unedited default would pin it: a better default in a
+        # later version would never reach this user.
+        stored.pop(code, None)
+    else:
+        stored[code] = text
+    return stored
+
+
+def prompt_status(text: str, default: str) -> str:
+    return "Default" if _is_default(text, default) else "Customized"
