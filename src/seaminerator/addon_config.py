@@ -123,8 +123,13 @@ def display_config(data: dict) -> Config:
     default_deck, the native language or the edited prompts to defaults:
     importing would then rewrite the note type's audio.
     """
+    # Unreadable language settings are dropped before parsing, so they never
+    # cost the provider blocks: Save would otherwise wipe every API key.
+    repaired = dict(data)
+    repaired["native_language"] = _readable_language(data)
+    repaired["prompts"] = _readable_prompts(data)
     try:
-        return config_from_dict(data)
+        return config_from_dict(repaired)
     except ConfigError:
         values = {
             name: data[name]
@@ -135,21 +140,32 @@ def display_config(data: dict) -> Config:
             voices, speed = _voice(data)
         except ConfigError:
             voices, speed = Config().tts_voices, Config().tts_speed
-        try:
-            native_language = _native_language(data)
-        except ConfigError:
-            native_language = ""
-        try:
-            prompts = _prompts(data)
-        except ConfigError:
-            prompts = {}
         return Config(
             tts_voices=voices,
             tts_speed=speed,
-            native_language=native_language,
-            prompts=prompts,
+            native_language=repaired["native_language"],
+            prompts=repaired["prompts"],
             **values,
         )
+
+
+def _readable_language(data: dict) -> str:
+    try:
+        return _native_language(data)
+    except ConfigError:
+        return ""
+
+
+def _readable_prompts(data: dict) -> dict[str, str]:
+    # Entry by entry: one bad entry must not cost the user's other edits.
+    prompts = data.get("prompts", {})
+    if not isinstance(prompts, dict):
+        return {}
+    return {
+        code: text
+        for code, text in prompts.items()
+        if code in NATIVE_LANGUAGES and isinstance(text, str) and text.strip()
+    }
 
 
 def config_to_dict(config: Config) -> dict:

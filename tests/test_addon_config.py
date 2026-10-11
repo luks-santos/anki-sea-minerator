@@ -284,6 +284,37 @@ def test_display_config_drops_an_unknown_language_of_a_broken_config():
     assert cfg.default_deck == "Grammar"
 
 
+def test_display_config_keeps_the_providers_when_only_the_language_is_unreadable():
+    # Settings would otherwise open with blank keys, and Save would wipe them.
+    data = shipped()
+    data["providers"]["anthropic"]["api_key"] = "kept"
+    data["provider"] = "anthropic"
+    data["native_language"] = "xx"
+
+    cfg = display_config(data)
+
+    assert cfg.provider == "anthropic"
+    assert cfg.providers["anthropic"].api_key == "kept"
+    assert cfg.native_language == ""
+
+
+def test_display_config_keeps_every_readable_prompt():
+    data = shipped()
+    data["prompts"] = {"es": "Mi prompt", "en": "x", "fr": 5}
+
+    cfg = display_config(data)
+
+    assert cfg.prompts == {"es": "Mi prompt"}
+
+
+def test_display_config_keeps_the_readable_prompts_of_a_broken_provider():
+    data = shipped()
+    data["provider"] = "nope"
+    data["prompts"] = {"es": "Mi prompt", "en": "x"}
+
+    assert display_config(data).prompts == {"es": "Mi prompt"}
+
+
 def test_with_native_language_changes_only_that_key():
     # A stored config that doesn't parse: the choice must still be saved
     # without touching anything else.
