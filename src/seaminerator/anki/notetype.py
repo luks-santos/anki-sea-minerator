@@ -114,26 +114,34 @@ def _add_label_css(model: dict) -> bool:
 
 
 def _repair_fields(col, model: dict, audio: bool) -> bool:
-    """Restore Front and Back at positions 0 and 1, and Audio when asked.
+    """Restore the Front and Back fields, Front first, and Audio when asked.
 
-    Front/Back drift is repaired by position (a renamed field gets its name
-    back, a missing one is added in place). Audio is matched by name and
-    never renamed, so its recordings survive. Adding a field changes the
-    schema (a full sync), which is why Audio is only added when `audio` is
-    set. Must run before any template comparison/rewrite, since a template
-    can't be saved with a reference to a field that doesn't exist.
+    Fields are matched by name first, so a user who reorders them (moving
+    Audio, or adding a field of their own) keeps every field and its content.
+    Only a missing Front or Back is repaired: the field in its usual slot is
+    renamed back when it isn't one of ours (a field renamed in place),
+    otherwise a new one is added there. Front must come first, since Anki's
+    duplicate and empty checks read the first field. Every one of these
+    changes the schema (a full sync), which is why Audio is only added when
+    `audio` is set. Must run before any template comparison/rewrite, since a
+    template can't be saved with a reference to a field that doesn't exist.
     """
+    ours = (FRONT_FIELD, BACK_FIELD, AUDIO_FIELD)
     changed = False
     for index, name in enumerate((FRONT_FIELD, BACK_FIELD)):
-        fields = model["flds"]
-        if index < len(fields) and fields[index]["name"] == name:
+        if _has_field(model, name):
             continue
-        if index < len(fields) and fields[index]["name"] != AUDIO_FIELD:
+        fields = model["flds"]
+        if index < len(fields) and fields[index]["name"] not in ours:
             col.models.rename_field(model, fields[index], name)
         else:
             field = col.models.new_field(name)
             col.models.add_field(model, field)
             col.models.reposition_field(model, field, index)
+        changed = True
+    front = next(f for f in model["flds"] if f["name"] == FRONT_FIELD)
+    if model["flds"].index(front) != 0:
+        col.models.reposition_field(model, front, 0)
         changed = True
     if audio and not _has_field(model, AUDIO_FIELD):
         col.models.add_field(model, col.models.new_field(AUDIO_FIELD))

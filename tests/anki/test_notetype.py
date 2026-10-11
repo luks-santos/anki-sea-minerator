@@ -236,3 +236,62 @@ def test_has_audio_field(col, two_field_note_type):
 
 def test_has_audio_field_is_true_before_the_note_type_exists(col):
     assert has_audio_field(col) is True
+
+
+def _three_field_note_with_content(col):
+    ensure_notetype(col, "en_US", audio=True)
+    note = col.new_note(col.models.by_name(NOTE_TYPE_NAME))
+    note[FRONT_FIELD] = "Kept front."
+    note[BACK_FIELD] = "Kept back."
+    col.add_note(note, col.decks.id("English"))
+    return note.id
+
+
+def _move_field(col, name, index):
+    model = col.models.by_name(NOTE_TYPE_NAME)
+    field = next(f for f in model["flds"] if f["name"] == name)
+    col.models.reposition_field(model, field, index)
+    col.models.save(model)
+    col.db.execute("update col set ls = scm + 1")
+
+
+def _names(col):
+    return [f["name"] for f in col.models.by_name(NOTE_TYPE_NAME)["flds"]]
+
+
+def test_ensure_notetype_keeps_an_audio_field_moved_between_front_and_back(col):
+    note_id = _three_field_note_with_content(col)
+    _move_field(col, AUDIO_FIELD, 1)
+
+    ensure_notetype(col, "en_US")
+
+    assert _names(col) == [FRONT_FIELD, AUDIO_FIELD, BACK_FIELD]
+    note = col.get_note(note_id)
+    assert (note[FRONT_FIELD], note[BACK_FIELD]) == ("Kept front.", "Kept back.")
+    assert not col.schema_changed()
+
+
+def test_ensure_notetype_puts_front_first_again_without_losing_content(col):
+    note_id = _three_field_note_with_content(col)
+    _move_field(col, AUDIO_FIELD, 0)
+
+    ensure_notetype(col, "en_US")
+
+    names = _names(col)
+    assert names[0] == FRONT_FIELD
+    assert sorted(names) == sorted([FRONT_FIELD, BACK_FIELD, AUDIO_FIELD])
+    note = col.get_note(note_id)
+    assert (note[FRONT_FIELD], note[BACK_FIELD]) == ("Kept front.", "Kept back.")
+
+
+def test_ensure_notetype_keeps_a_field_the_user_added_between_front_and_back(col):
+    ensure_notetype(col, "en_US")
+    model = col.models.by_name(NOTE_TYPE_NAME)
+    notes = col.models.new_field("Notes")
+    col.models.add_field(model, notes)
+    col.models.reposition_field(model, notes, 1)
+    col.models.save(model)
+
+    ensure_notetype(col, "en_US")
+
+    assert _names(col) == [FRONT_FIELD, "Notes", BACK_FIELD, AUDIO_FIELD]
