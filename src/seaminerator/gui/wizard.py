@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import html
 import time
+from dataclasses import replace
 
 from aqt import mw
 from aqt.operations import CollectionOp, QueryOp
@@ -21,7 +22,7 @@ from aqt.qt import (
 )
 from aqt.utils import showWarning
 
-from ..addon_config import config_from_dict, with_native_language
+from ..addon_config import config_from_dict, display_config, with_native_language
 from ..anki.batch import create_batch
 from ..anki.collection_client import CollectionAnkiClient
 from ..anki.notetype import NOTE_TYPE_NAME, ensure_notetype
@@ -141,8 +142,21 @@ class MineWizard(QDialog):
         except ConfigError as exc:
             # The review screen still needs colors and a deck list, so keep
             # the previous (or default) config; mining is refused until the
-            # config is fixed.
+            # config is fixed. The stored language is kept too, so a broken
+            # provider never makes the wizard ask for it again.
+            self._cfg = replace(
+                self._cfg, native_language=display_config(config).native_language
+            )
             self._config_error = str(exc)
+
+    def _sync_language_row(self) -> None:
+        # Shown whenever no language is configured, also after it was
+        # cleared in settings while this wizard stayed open. A choice left in
+        # the hidden combo is reset, so it is never saved without being seen.
+        missing = not self._cfg.native_language
+        if missing and self._language_row.isHidden():
+            self._language_box.setCurrentIndex(0)
+        self._language_row.setVisible(missing)
 
     def _config_problem(self, message: str) -> None:
         # The settings dialog shows what is missing; `message` is kept for
@@ -151,14 +165,14 @@ class MineWizard(QDialog):
 
         if open_settings(self):
             self._reload_config()
+            self._sync_language_row()
 
     def _start_mining(self) -> None:
         words = parse_word_list(self._words_edit.toPlainText())
         # Reloaded first: the language may have been chosen in the settings
         # dialog while this non-modal wizard stayed open.
         self._reload_config()
-        if self._cfg.native_language:
-            self._language_row.setVisible(False)
+        self._sync_language_row()
         language = self._cfg.native_language or self._language_box.currentData()
         error = start_error(words, self._deck_box.currentText(), language)
         if error:
@@ -204,7 +218,7 @@ class MineWizard(QDialog):
         stored = mw.addonManager.getConfig(ADDON) or {}
         mw.addonManager.writeConfig(ADDON, with_native_language(stored, code))
         self._reload_config()
-        self._language_row.setVisible(False)
+        self._sync_language_row()
 
     def _on_mining_failed(self, exc: Exception) -> None:
         if self._closed:

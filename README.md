@@ -74,6 +74,7 @@ The settings dialog also sets:
   Like the language, they reach the note type the next time you create or
   import cards, and then apply to existing cards too.
 - `highlight_color` — the CSS color used for the studied expression.
+
 **Edit prompt…**, next to the native language, shows the prompt the model
 receives for that language and lets you change it; **Reset to default** brings
 back the built-in one. Brazilian Portuguese has a tuned prompt; the other

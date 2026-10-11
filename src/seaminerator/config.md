@@ -13,7 +13,6 @@ there; editing this JSON directly is never required.
   `{"es": "…"}`. A language without an entry uses its default prompt: a tuned
   one for `pt-BR`, a generic one for the others. The response format and the
   grammar class and topic rules are always added after it.
-
 - `provider` — `gemini`, `openai` (OpenAI and compatible services such as
   OpenRouter or Groq, with a model that supports `json_schema` structured
   outputs), `anthropic`, or `local` (Ollama at `http://localhost:11434/v1`,
