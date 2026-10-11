@@ -143,3 +143,22 @@ def test_voice_choices_lists_each_voice_of_the_language_once_sorted():
 
 def test_voice_choices_is_empty_without_voices_for_the_language():
     assert voice_choices([("Microsoft_Zira", "en_US")], "pt_BR") == []
+
+
+def test_form_to_config_carries_the_language_and_prompts():
+    prompts = {"es": "Mi prompt"}
+
+    cfg = form_to_config(
+        "gemini",
+        default_providers(),
+        "",
+        "en_US",
+        "#2563eb",
+        "",
+        native_language="es",
+        prompts=prompts,
+    )
+
+    assert cfg.native_language == "es"
+    assert cfg.prompts == {"es": "Mi prompt"}
+    assert cfg.prompts is not prompts

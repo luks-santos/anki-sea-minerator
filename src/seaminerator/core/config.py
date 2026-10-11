@@ -88,4 +88,9 @@ class Config:
     tts_voices: tuple[str, ...] = ()
     tts_speed: float = 1.0
     highlight_color: str = "#2563eb"
+    # "" until the user picks one; mining refuses to start without it.
+    native_language: str = ""
+    # Edited prompt bodies by language code; a language without an entry
+    # uses its default prompt.
+    prompts: dict[str, str] = field(default_factory=dict)
     prompt_path: str = ""

@@ -225,6 +225,9 @@ class SettingsDialog(QDialog):
             self._cfg.prompt_path,
             tts_voices=self._voice_box.currentText(),
             tts_speed=self._speed_box.value(),
+            # No widgets for these yet: carried through so Save keeps them.
+            native_language=self._cfg.native_language,
+            prompts=self._cfg.prompts,
         )
 
     def _show_voice(self, cfg: Config) -> None:

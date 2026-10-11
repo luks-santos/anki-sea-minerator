@@ -48,6 +48,8 @@ def form_to_config(
     *,
     tts_voices: str = "",
     tts_speed: float = 1.0,
+    native_language: str = "",
+    prompts: dict[str, str] | None = None,
 ) -> Config:
     return Config(
         provider=provider,
@@ -58,6 +60,8 @@ def form_to_config(
         tts_speed=tts_speed,
         highlight_color=highlight_color.strip(),
         prompt_path=prompt_path,
+        native_language=native_language,
+        prompts=dict(prompts or {}),
     )
 
 
