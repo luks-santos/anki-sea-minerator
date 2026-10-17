@@ -152,3 +152,27 @@ def store_prompt(
 
 def prompt_status(text: str, default: str) -> str:
     return "Default" if _is_default(text, default) else "Customized"
+
+
+def audio_note(source: str, lame_found: bool, error: str = "") -> str:
+    """What the chosen audio source sends where, with a preview's error on top.
+
+    The error goes above the note instead of replacing it, so a failed
+    preview never hides where the sentences are sent.
+    """
+    if source == "google":
+        note = (
+            "Sentences are sent to Google Translate (an unofficial endpoint) "
+            "when cards are created. If it fails, cards use the fallback voice."
+        )
+    elif source == "gemini":
+        note = (
+            "Sentences are sent to Gemini with your Gemini API key when cards "
+            "are created; any Gemini can't record go to Google Translate (an "
+            "unofficial endpoint). If both fail, cards use the fallback voice."
+        )
+        if not lame_found:
+            note += " LAME was not found, so Google Translate will record instead."
+    else:
+        return ""
+    return f"✗ {error}\n\n{note}" if error else note

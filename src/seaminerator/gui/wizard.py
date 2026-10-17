@@ -28,11 +28,10 @@ from ..anki.collection_client import CollectionAnkiClient
 from ..anki.notetype import NOTE_TYPE_NAME, ensure_notetype
 from ..core.ai.base import AIError
 from ..core.ai.registry import build_provider
-from ..core.audio.base import speech_text
 from ..core.audio.recording import RecordingRun, run_notes
 from ..core.cards import highlight_html
 from ..core.config import Config, ConfigError
-from ..core.flow import CardResult
+from ..core.flow import CardResult, mined_speech
 from ..core.languages import NATIVE_LANGUAGES
 from ..core.mining import mine_words
 from ..core.models import WordBlock
@@ -428,7 +427,7 @@ class MineWizard(QDialog):
             return
 
         deck = self._deck_box.currentText()
-        texts = [speech_text(s.text) for _word, sentences in pairs for s in sentences]
+        texts = mined_speech(pairs, self._cfg, self._client)
 
         self._creating = True
         self._refresh_count()

@@ -46,6 +46,7 @@ from ..core.config import (
 )
 from ..core.languages import NATIVE_LANGUAGES
 from ..core.settings import (
+    audio_note,
     form_to_config,
     mask_keys,
     model_choices,
@@ -376,22 +377,12 @@ class SettingsDialog(QDialog):
         self._audio_note.setVisible(recorded)
         self._voice_label.setText("Fallback voice:" if recorded else "Voice:")
         self._speed_label.setText("Fallback speed:" if recorded else "Speed:")
-        if source == "google":
-            note = (
-                "Sentences are sent to Google Translate (an unofficial endpoint) "
-                "when cards are created. If it fails, cards use the fallback voice."
-            )
-        elif source == "gemini":
-            note = (
-                "Sentences are sent to Gemini with your Gemini API key when cards "
-                "are created; any Gemini can't record go to Google Translate (an "
-                "unofficial endpoint). If both fail, cards use the fallback voice."
-            )
-            if not lame_available():
-                note += " LAME was not found, so Google Translate will record instead."
-        else:
-            note = ""
-        self._audio_note.setText(note)
+        self._show_audio_note()
+
+    def _show_audio_note(self, error: str = "") -> None:
+        source = self._source_box.currentData()
+        lame_found = source != "gemini" or lame_available()
+        self._audio_note.setText(audio_note(source, lame_found, error))
 
     def _audio_settings(self) -> AudioSettings:
         return AudioSettings(
@@ -405,7 +396,7 @@ class SettingsDialog(QDialog):
         try:
             recorders = build_recorders(self._form_config(), encode_mp3)
         except ConfigError as exc:
-            self._audio_note.setText(f"✗ {exc}")
+            self._show_audio_note(str(exc))
             return
         if not recorders:
             return
@@ -413,6 +404,13 @@ class SettingsDialog(QDialog):
         # being previewed.
         recorder = recorders[0]
         self._record_preview.setEnabled(False)
+
+        def record() -> bytes:
+            try:
+                return recorder.record(PREVIEW_TEXT)
+            finally:
+                for built in recorders:
+                    built.close()
 
         def finished() -> bool:
             if self._closed:
@@ -426,11 +424,11 @@ class SettingsDialog(QDialog):
 
         def on_failure(exc: Exception) -> None:
             if finished():
-                self._audio_note.setText(f"✗ {exc}")
+                self._show_audio_note(str(exc))
 
         QueryOp(
             parent=self,
-            op=lambda _col: recorder.record(PREVIEW_TEXT),
+            op=lambda _col: record(),
             success=on_success,
         ).failure(on_failure).without_collection().with_progress(
             "Recording a preview…"

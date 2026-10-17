@@ -6,6 +6,12 @@ import re
 from typing import Protocol
 
 _LABEL_PREFIX = re.compile(r"^\s*\[[^\[\]]+\]\s*")
+# Line and block breaks separate words; any other tag can sit inside one
+# ("look<b>ed</b>"), so it is dropped without a space.
+_BREAK = re.compile(
+    r"</?(?:br|div|p|li|ul|ol|tr|td|th|h[1-6]|hr|table|blockquote)\b[^>]*>",
+    re.IGNORECASE,
+)
 _TAG = re.compile(r"<[^>]*>")
 
 
@@ -27,10 +33,12 @@ class Recorder(Protocol):
 
     def record(self, text: str) -> bytes: ...
 
+    def close(self) -> None: ...
+
 
 def speech_text(raw: str, *, strip_label: bool = False) -> str:
     text = _LABEL_PREFIX.sub("", raw, count=1) if strip_label else raw
-    text = html.unescape(_TAG.sub(" ", text))
+    text = html.unescape(_TAG.sub("", _BREAK.sub(" ", text)))
     return " ".join(text.split())
 
 

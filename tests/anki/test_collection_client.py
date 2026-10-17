@@ -136,3 +136,20 @@ def test_write_media_stores_the_file_and_returns_its_name(col):
 
     assert name == "sea-minerator-test.mp3"
     assert (Path(col.media.dir()) / name).read_bytes() == b"ID3data"
+
+
+def test_is_duplicate_finds_an_existing_front_without_adding_a_note(client, col):
+    client.add_note(
+        deck="English", model=NOTE_TYPE_NAME, fields={"Front": "Never give up."}
+    )
+    highlighted = 'Never <span style="color:#2563eb">give up</span>.'
+
+    # Anki compares fronts without their HTML, as add_note's check does.
+    assert client.is_duplicate(NOTE_TYPE_NAME, {"Front": highlighted}) is True
+    assert client.is_duplicate(NOTE_TYPE_NAME, {"Front": "Keep going."}) is False
+    assert col.note_count() == 1
+
+
+def test_is_duplicate_is_false_for_a_note_type_that_does_not_exist(client):
+    # add_note reports the missing note type; there is nothing to duplicate.
+    assert client.is_duplicate("Nope", {"Front": "a"}) is False

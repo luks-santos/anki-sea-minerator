@@ -18,6 +18,7 @@ class FakeRecorder:
         self.name = name
         self.outcomes = outcomes or {}
         self.calls = []
+        self.closed = False
 
     def record(self, text):
         self.calls.append(text)
@@ -25,6 +26,9 @@ class FakeRecorder:
         if isinstance(outcome, Exception):
             raise outcome
         return outcome
+
+    def close(self):
+        self.closed = True
 
 
 def gemini(outcomes=None):
@@ -160,12 +164,30 @@ def test_a_sentence_both_sources_fail_on_keeps_both_reasons():
     assert run.stopped is None
 
 
+def test_the_run_closes_every_recorder_when_it_ends():
+    first = gemini({"A.": AudioError(GEMINI_DOWN, source_down=True)})
+    backup = FakeRecorder()
+
+    record_all([first, backup], ["A."])
+
+    assert (first.closed, backup.closed) == (True, True)
+
+
 def test_failed_run_marks_every_text_with_the_reason():
     run = failed_run(["A.", "", "A.", "B."], "no key")
 
     assert run == RecordingRun(
         failures={"A.": "no key", "B.": "no key"}, stopped="no key"
     )
+
+
+def test_the_stop_note_does_not_double_the_reason_s_period():
+    run = failed_run(["A."], "Gemini audio needs a key (set it in settings).")
+
+    assert run_notes(run) == [
+        "Audio recording stopped: Gemini audio needs a key (set it in settings). "
+        "Cards without a recording use the system voice."
+    ]
 
 
 def test_run_notes_are_empty_without_a_run():

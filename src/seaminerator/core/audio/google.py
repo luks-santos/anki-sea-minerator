@@ -77,3 +77,6 @@ class GoogleRecorder:
             content=request_body(text),
         )
         return parse_audio(response.text)
+
+    def close(self) -> None:
+        self._client.close()

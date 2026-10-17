@@ -1,3 +1,4 @@
+from seaminerator.core.audio.recording import Recording, RecordingRun
 from seaminerator.core.config import Config
 from seaminerator.core.flow import (
     create_card,
@@ -21,10 +22,18 @@ class FakeAnki:
         )
         return 999
 
+    def is_duplicate(self, model, fields):
+        return False
+
 
 class FailingAddNoteAnki(FakeAnki):
     def add_note(self, deck, model, fields, tags=None):
         raise RuntimeError("deck not found")
+
+
+class FailingMediaAnki(FakeAnki):
+    def write_media(self, name, data):
+        raise OSError("disk full")
 
 
 def make_word():
@@ -105,6 +114,18 @@ def test_create_card_survives_add_note_failure_with_warning():
     assert result.created is False
     assert result.note_id is None
     assert "deck not found" in result.warning
+
+
+def test_a_recording_that_cannot_be_saved_costs_only_its_audio():
+    anki = FailingMediaAnki()
+    sentence = Sentence(text="Never give up.", highlight="give up")
+    run = RecordingRun(recordings={"Never give up.": Recording("a.mp3", b"ID3")})
+
+    result = create_card(make_word(), sentence, Config(), "English", anki, run)
+
+    assert result.created is True
+    assert anki.notes[0]["fields"]["Audio"] == ""
+    assert result.warning == ("recording not saved, system voice used: disk full")
 
 
 def test_create_cards_for_selection_maps_over_sentences():

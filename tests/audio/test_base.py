@@ -10,6 +10,16 @@ def test_speech_text_drops_tags_and_unescapes_entities():
     assert speech_text(raw) == "I've got it now"
 
 
+def test_speech_text_keeps_a_word_whole_across_inline_tags():
+    assert speech_text("I look<b>ed</b> at <i>it</i>.") == "I looked at it."
+
+
+def test_speech_text_separates_lines_and_blocks():
+    assert speech_text("One.<br>Two.") == "One. Two."
+    assert speech_text("<div>One.</div><div>Two.</div>") == "One. Two."
+    assert speech_text("<p>One.</p><p>Two.</p>") == "One. Two."
+
+
 def test_speech_text_strips_a_leading_label_only_when_asked():
     assert speech_text("[Grammar] We had a bad day.", strip_label=True) == (
         "We had a bad day."
