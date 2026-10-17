@@ -38,7 +38,21 @@ def record_all(
     service is down, the key is bad, the quota is spent) takes that source
     out of the run, so later sentences go straight to the next one; once
     every source has stopped, the rest are left to the system voice.
+
+    The recorders are built for one run, so the run closes them when it ends.
     """
+    try:
+        return _record(recorders, texts, on_progress)
+    finally:
+        for recorder in recorders:
+            recorder.close()
+
+
+def _record(
+    recorders: Sequence[Recorder],
+    texts: Iterable[str],
+    on_progress: Callable[[int, int], None] | None,
+) -> RecordingRun:
     unique = _unique(texts)
     recordings: dict[str, Recording] = {}
     failures: dict[str, str] = {}
@@ -104,8 +118,9 @@ def run_notes(run: RecordingRun | None) -> list[str]:
         return []
     notes = list(run.handovers)
     if run.stopped is not None:
+        # A config message ends with its own period.
         notes.append(
-            f"Audio recording stopped: {run.stopped}. "
+            f"Audio recording stopped: {run.stopped.rstrip('.')}. "
             "Cards without a recording use the system voice."
         )
     return notes

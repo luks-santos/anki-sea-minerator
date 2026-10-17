@@ -30,10 +30,12 @@ import pytest
 from anki.errors import NotFoundError
 
 from seaminerator.anki.batch import create_batch, create_import_batch
+from seaminerator.anki.collection_client import CollectionAnkiClient
 from seaminerator.anki.notetype import ensure_notetype
 from seaminerator.core.audio.base import media_name
 from seaminerator.core.audio.recording import Recording, RecordingRun
 from seaminerator.core.config import Config
+from seaminerator.core.flow import imported_speech, mined_speech
 from seaminerator.core.models import ImportedCard, Sentence, WordBlock
 
 
@@ -207,3 +209,44 @@ def test_import_batch_records_the_front_without_its_label(col):
 
     note = col.get_note(results[0].note_id)
     assert note["Audio"] == f"[sound:{media_name('google', 'us', text)}]"
+
+
+def test_re_mining_a_sentence_leaves_no_recording_behind(col):
+    ensure_notetype(col, "en_US", audio=True)
+    create_batch(col, [make_pair("one", ["one."])], Config(), "English")
+    again = Recording("sea-minerator-again.mp3", b"ID3")
+
+    results, _changes = create_batch(
+        col,
+        [make_pair("one", ["one."])],
+        Config(),
+        "English",
+        RecordingRun(recordings={"one.": again}),
+    )
+
+    assert results[0].created is False
+    assert results[0].warning == (
+        "card not created: a note with this front already exists, or the front is empty"
+    )
+    assert not (Path(col.media.dir()) / again.name).exists()
+
+
+def test_only_sentences_not_mined_yet_are_sent_to_record(col):
+    ensure_notetype(col, "en_US", audio=True)
+    create_batch(col, [make_pair("one", ["one."])], Config(), "English")
+    pairs = [make_pair("one", ["one.", "One more."]), make_pair("two", ["two."])]
+
+    texts = mined_speech(pairs, Config(), CollectionAnkiClient(col))
+
+    assert texts == ["One more.", "two."]
+
+
+def test_only_imported_fronts_not_in_the_collection_are_sent_to_record(col):
+    ensure_notetype(col, "en_US", audio=True)
+    first = ImportedCard(front="[Grammar] I've just arrived.", back="Eu cheguei.")
+    create_import_batch(col, [first], Config(), "Grammar", "")
+    cards = [first, ImportedCard(front="[Grammar] Have you seen him?", back="Viu?")]
+
+    texts = imported_speech(cards, CollectionAnkiClient(col))
+
+    assert texts == ["Have you seen him?"]

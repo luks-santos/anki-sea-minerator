@@ -105,3 +105,19 @@ def test_a_connection_error_means_the_source_is_down():
         GoogleRecorder("us", transport=httpx.MockTransport(handler)).record("Hello.")
 
     assert caught.value.source_down is True
+
+
+class ClosableTransport(httpx.MockTransport):
+    closed = False
+
+    def close(self):
+        self.closed = True
+
+
+def test_close_releases_the_connections():
+    transport = ClosableTransport(lambda request: httpx.Response(200))
+    recorder = GoogleRecorder("us", transport=transport)
+
+    recorder.close()
+
+    assert transport.closed is True

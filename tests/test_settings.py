@@ -9,6 +9,7 @@ from seaminerator.core.config import (
 )
 from seaminerator.core.settings import (
     KEY_MASK,
+    audio_note,
     form_to_config,
     mask_keys,
     model_choices,
@@ -240,3 +241,19 @@ def test_validate_requires_a_gemini_voice_and_model():
 
     assert "Choose a Gemini voice." in problems
     assert "Choose a Gemini TTS model." in problems
+
+
+def test_a_preview_error_shows_above_the_privacy_note_instead_of_hiding_it():
+    note = audio_note("google", lame_found=True, error="Google Translate is down")
+
+    assert note.startswith("✗ Google Translate is down")
+    assert "sent to Google Translate (an unofficial endpoint)" in note
+
+
+def test_the_gemini_note_mentions_lame_only_when_it_is_missing():
+    assert "LAME was not found" in audio_note("gemini", lame_found=False)
+    assert "LAME" not in audio_note("gemini", lame_found=True)
+
+
+def test_the_system_voice_sends_nothing_so_it_has_no_note():
+    assert audio_note("system", lame_found=True) == ""

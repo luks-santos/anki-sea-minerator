@@ -102,3 +102,6 @@ class GeminiRecorder:
         except ValueError as exc:
             raise AudioError(f"{SOURCE} returned no audio", source_down=False) from exc
         return self._encode_mp3(wav_from_response(data))
+
+    def close(self) -> None:
+        self._client.close()

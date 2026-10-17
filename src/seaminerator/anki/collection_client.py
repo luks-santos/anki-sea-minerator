@@ -20,6 +20,13 @@ class CollectionAnkiClient:
         # `name` only if another file already uses it with other content.
         return self._col.media.write_data(name, data)
 
+    def is_duplicate(self, model: str, fields: dict[str, str]) -> bool:
+        # The same check add_note runs (also true for an empty front), on a
+        # note that is never added.
+        if self._col.models.by_name(model) is None:
+            return False
+        return bool(self._new_note(model, fields).duplicate_or_empty())
+
     def add_note(
         self,
         deck: str,
@@ -27,13 +34,7 @@ class CollectionAnkiClient:
         fields: dict[str, str],
         tags: list[str] | None = None,
     ) -> int:
-        notetype = self._col.models.by_name(model)
-        if notetype is None:
-            raise ValueError(f"note type '{model}' not found in the collection")
-
-        note = self._col.new_note(notetype)
-        for name, value in fields.items():
-            note[name] = value
+        note = self._new_note(model, fields)
         note.tags = list(tags or [])
 
         # `duplicate_or_empty()` returns truthy for either a duplicate *or* an
@@ -49,3 +50,13 @@ class CollectionAnkiClient:
         deck_id = self._col.decks.id(deck)
         self._col.add_note(note, deck_id)
         return note.id
+
+    def _new_note(self, model: str, fields: dict[str, str]):
+        notetype = self._col.models.by_name(model)
+        if notetype is None:
+            raise ValueError(f"note type '{model}' not found in the collection")
+
+        note = self._col.new_note(notetype)
+        for name, value in fields.items():
+            note[name] = value
+        return note

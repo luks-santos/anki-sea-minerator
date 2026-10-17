@@ -21,9 +21,8 @@ from ..addon_config import display_config
 from ..anki.batch import create_import_batch
 from ..anki.collection_client import CollectionAnkiClient
 from ..anki.notetype import NOTE_TYPE_NAME, ensure_notetype
-from ..core.audio.base import speech_text
 from ..core.audio.recording import RecordingRun, run_notes
-from ..core.flow import CardResult, ImportPlan, prepare_import
+from ..core.flow import CardResult, ImportPlan, imported_speech, prepare_import
 from ..core.session import failure_lines, import_status, summarize, warning_lines
 from ..core.tags import BASE_TOPICS
 from .recording import record_then
@@ -151,7 +150,7 @@ class ImportDialog(QDialog):
 
         cards = list(self._plan.cards)
         topic = self._plan.topic
-        texts = [speech_text(card.front, strip_label=True) for card in cards]
+        texts = imported_speech(cards, CollectionAnkiClient(mw.col))
 
         self._creating = True
         self._refresh()

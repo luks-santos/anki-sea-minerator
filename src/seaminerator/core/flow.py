@@ -17,6 +17,7 @@ BACK_FIELD = "Back"
 AUDIO_FIELD = "Audio"
 LABEL_CLASS = "sm-label"
 AUDIO_WARNING = "audio not recorded, system voice used: "
+SAVE_WARNING = "recording not saved, system voice used: "
 
 _LABEL_PREFIX = re.compile(r"^\s*\[([^\[\]]+)\]\s*(.*)$", re.DOTALL)
 
@@ -30,12 +31,20 @@ class CardResult:
     warning: str | None = None
 
 
+def _exists(front: str, anki) -> bool:
+    return anki.is_duplicate(NOTE_TYPE_NAME, {FRONT_FIELD: front})
+
+
 def _audio_fields(
-    run: RecordingRun | None, text: str, anki, warnings: list[str]
+    run: RecordingRun | None, text: str, front: str, anki, warnings: list[str]
 ) -> dict[str, str]:
     # No run means the system voice: the Audio key is left out entirely, so
     # an old two-field note type keeps working without the field.
     if run is None:
+        return {}
+    # A duplicate is refused by add_note; saving its recording would leave an
+    # unused file and warning about its audio would only add noise.
+    if _exists(front, anki):
         return {}
     recording = run.recordings.get(text)
     if recording is None:
@@ -45,9 +54,15 @@ def _audio_fields(
             warnings.append(AUDIO_WARNING + reason)
         return {AUDIO_FIELD: ""}
     # Written before the note is added: the field must name the file Anki
-    # actually stored. A note that then fails leaves an unused file, which
-    # Check Media removes like any other.
-    name = anki.write_media(recording.name, recording.data)
+    # actually stored. A note that still fails (a bad deck name) leaves an
+    # unused file, which Check Media removes like any other.
+    try:
+        name = anki.write_media(recording.name, recording.data)
+    except Exception as exc:
+        # A full disk or a locked media folder costs this card its audio,
+        # never the batch.
+        warnings.append(f"{SAVE_WARNING}{exc}")
+        return {AUDIO_FIELD: ""}
     return {AUDIO_FIELD: f"[sound:{name}]"}
 
 
@@ -90,12 +105,16 @@ def create_card(
     run: RecordingRun | None = None,
 ) -> CardResult:
     warnings: list[str] = []
-    front = highlight_html(sentence.text, sentence.highlight, cfg.highlight_color)
+    front = _mined_front(sentence, cfg)
     if sentence.highlight and front == sentence.text:
         warnings.append(f"highlight '{sentence.highlight}' not found in sentence")
     back = build_back(word, sentence.topics)
-    audio = _audio_fields(run, speech_text(sentence.text), anki, warnings)
+    audio = _audio_fields(run, speech_text(sentence.text), front, anki, warnings)
     return _add(word.expression, front, back, deck, anki, warnings, audio)
+
+
+def _mined_front(sentence: Sentence, cfg: Config) -> str:
+    return highlight_html(sentence.text, sentence.highlight, cfg.highlight_color)
 
 
 def create_cards_for_selection(
@@ -107,6 +126,22 @@ def create_cards_for_selection(
     run: RecordingRun | None = None,
 ) -> list[CardResult]:
     return [create_card(word, s, cfg, deck, anki, run) for s in selected]
+
+
+def mined_speech(
+    pairs: list[tuple[WordBlock, list[Sentence]]], cfg: Config, anki
+) -> list[str]:
+    """The sentences to record: those whose card is not in the collection yet.
+
+    A sentence mined before would only be refused as a duplicate, so
+    recording it would spend a request (and Gemini quota) for nothing.
+    """
+    return [
+        speech_text(s.text)
+        for _word, sentences in pairs
+        for s in sentences
+        if not _exists(_mined_front(s, cfg), anki)
+    ]
 
 
 def imported_front(front: str) -> str:
@@ -169,7 +204,7 @@ def create_imported_card(
     warnings: list[str] = []
     front = imported_front(card.front)
     text = speech_text(card.front, strip_label=True)
-    audio = _audio_fields(run, text, anki, warnings)
+    audio = _audio_fields(run, text, front, anki, warnings)
     back = imported_back(card.back, topic)
     return _add(card.front, front, back, deck, anki, warnings, audio)
 
@@ -183,3 +218,12 @@ def create_imported_cards(
     run: RecordingRun | None = None,
 ) -> list[CardResult]:
     return [create_imported_card(c, cfg, deck, anki, topic, run) for c in cards]
+
+
+def imported_speech(cards: list[ImportedCard], anki) -> list[str]:
+    """The fronts to record: those not in the collection yet (see mined_speech)."""
+    return [
+        speech_text(card.front, strip_label=True)
+        for card in cards
+        if not _exists(imported_front(card.front), anki)
+    ]

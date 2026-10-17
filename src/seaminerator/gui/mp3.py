@@ -45,8 +45,10 @@ def encode_mp3(wav: bytes) -> bytes:
             cmd, env=env, startupinfo=startup_info(), capture_output=True, timeout=60
         )
         if result.returncode != 0:
+            # LAME is there and ran, so this sentence failed, not the source:
+            # the next one may encode, and this one goes to the backup.
             raise AudioError(
-                f"LAME failed (exit {result.returncode})", source_down=True
+                f"LAME failed (exit {result.returncode})", source_down=False
             )
         with open(mp3_path, "rb") as file:
             return file.read()

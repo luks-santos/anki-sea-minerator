@@ -18,9 +18,8 @@ def build_recorders(
     still yields recordings; whatever no source records uses the system voice.
     """
     audio = cfg.audio
-    google = GoogleRecorder(audio.google_accent)
     if audio.source == "google":
-        return [google]
+        return [GoogleRecorder(audio.google_accent)]
     if audio.source == "gemini":
         # The Gemini provider's key and URL, whichever provider mines.
         gemini = cfg.providers["gemini"]
@@ -33,5 +32,5 @@ def build_recorders(
             encode_mp3,
             gemini.base_url,
         )
-        return [first, google]
+        return [first, GoogleRecorder(audio.google_accent)]
     return []

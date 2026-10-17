@@ -118,3 +118,19 @@ def test_an_encoder_failure_propagates():
 
     with pytest.raises(AudioError, match="LAME"):
         rec.record("Hi.")
+
+
+class ClosableTransport(httpx.MockTransport):
+    closed = False
+
+    def close(self):
+        self.closed = True
+
+
+def test_close_releases_the_connections():
+    transport = ClosableTransport(lambda request: httpx.Response(200))
+    rec = GeminiRecorder("k", MODEL, "Kore", lambda wav: b"", BASE, transport=transport)
+
+    rec.close()
+
+    assert transport.closed is True
