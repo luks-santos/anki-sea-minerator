@@ -113,3 +113,6 @@ class Config:
     # uses its default prompt.
     prompts: dict[str, str] = field(default_factory=dict)
     audio: AudioSettings = field(default_factory=AudioSettings)
+    # Fill the Topic field and show it as a badge. Turned off when the user
+    # declines adding the field to an existing note type.
+    topic_badge: bool = True

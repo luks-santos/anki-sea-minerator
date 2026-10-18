@@ -32,7 +32,8 @@ For EACH item, produce data following these rules:
   authentic to everyday speech, drawing on Cambridge Dictionary, DK EFE
   (https://www.dkefe.com/en) and Reverso Context. For each sentence also give the
   exact substring to highlight (the studied expression as it literally appears in
-  that sentence, including inflection) and a short English usage note.
+  that sentence, including inflection), its Portuguese translation as that
+  sentence uses it, and a short English usage note.
 """
 
 # For languages without a dedicated prompt. Cambridge stays the definition
@@ -56,7 +57,8 @@ For EACH item, produce data following these rules:
   authentic to everyday speech, drawing on Cambridge Dictionary, DK EFE
   (https://www.dkefe.com/en) and Reverso Context. For each sentence also give the
   exact substring to highlight (the studied expression as it literally appears in
-  that sentence, including inflection) and a short English usage note.
+  that sentence, including inflection), its {native_language} translation as
+  that sentence uses it, and a short English usage note.
 """
 
 DEDICATED_PROMPTS: dict[str, str] = {"pt-BR": PT_BR_PROMPT}
@@ -65,6 +67,9 @@ DEDICATED_PROMPTS: dict[str, str] = {"pt-BR": PT_BR_PROMPT}
 # guides quality. Explanation and translations are left as "..." so the
 # example carries no language into the others.
 RESPONSE_FORMAT = """\
+Each sentence's "translation" translates its highlight as used in that
+sentence: same subject, tense and number.
+
 Respond ONLY with JSON (no markdown fences) matching this schema:
 {
   "words": [
@@ -77,12 +82,14 @@ Respond ONLY with JSON (no markdown fences) matching this schema:
         {
           "text": "She has given up smoking.",
           "highlight": "given up",
+          "translation": "...",
           "note": "present perfect",
           "topics": ["present-perfect"]
         },
         {
           "text": "Never give up on dreams.",
           "highlight": "give up",
+          "translation": "...",
           "note": "imperative",
           "topics": []
         }

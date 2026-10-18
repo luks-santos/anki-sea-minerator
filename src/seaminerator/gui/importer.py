@@ -40,6 +40,7 @@ from ..core.session import (
 )
 from ..core.tags import BASE_TOPICS
 from .recording import record_then
+from .topic_field import prepare_topic_field
 
 ADDON = __name__.split(".")[0]
 # Marks highlighted text in the paste box, whatever color it is drawn in.
@@ -239,6 +240,7 @@ class ImportDialog(QDialog):
             )
             return
 
+        self._cfg = prepare_topic_field(self, self._cfg, bool(self._plan.topic))
         cards = list(self._plan.cards)
         topic = self._plan.topic
         texts = imported_speech(cards, self._cfg, CollectionAnkiClient(mw.col))

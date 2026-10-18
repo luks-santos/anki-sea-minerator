@@ -257,3 +257,10 @@ def test_the_gemini_note_mentions_lame_only_when_it_is_missing():
 
 def test_the_system_voice_sends_nothing_so_it_has_no_note():
     assert audio_note("system", lame_found=True) == ""
+
+
+def test_form_to_config_carries_the_topic_badge_choice():
+    cfg = form_to_config(
+        "gemini", default_providers(), "", "en_US", "#2563eb", topic_badge=False
+    )
+    assert cfg.topic_badge is False

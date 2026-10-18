@@ -63,8 +63,33 @@ def config_from_dict(data: dict) -> Config:
         native_language=_native_language(data),
         prompts=_prompts(data),
         audio=_audio(data),
+        topic_badge=_topic_badge(data),
         **values,
     )
+
+
+def _topic_badge(data: dict) -> bool:
+    value = data.get("topic_badge", Config().topic_badge)
+    if not isinstance(value, bool):
+        raise ConfigError("'topic_badge' must be true or false")
+    return value
+
+
+def _readable_topic_badge(data: dict) -> bool:
+    try:
+        return _topic_badge(data)
+    except ConfigError:
+        return Config().topic_badge
+
+
+def with_topic_badge(data: dict, enabled: bool) -> dict:
+    """The stored config with only the badge choice changed.
+
+    Works on the raw dict, like with_native_language.
+    """
+    updated = dict(data)
+    updated["topic_badge"] = enabled
+    return updated
 
 
 def _voice(data: dict) -> tuple[tuple[str, ...], float]:
@@ -185,6 +210,7 @@ def display_config(data: dict) -> Config:
     repaired["native_language"] = _readable_language(data)
     repaired["prompts"] = _readable_prompts(data)
     repaired["audio"] = _audio_dict(_readable_audio(data))
+    repaired["topic_badge"] = _readable_topic_badge(data)
     try:
         return config_from_dict(repaired)
     except ConfigError:
@@ -203,6 +229,7 @@ def display_config(data: dict) -> Config:
             native_language=repaired["native_language"],
             prompts=repaired["prompts"],
             audio=_readable_audio(data),
+            topic_badge=repaired["topic_badge"],
             **values,
         )
 
@@ -245,4 +272,5 @@ def config_to_dict(config: Config) -> dict:
         "native_language": config.native_language,
         "prompts": dict(config.prompts),
         "audio": _audio_dict(config.audio),
+        "topic_badge": config.topic_badge,
     }

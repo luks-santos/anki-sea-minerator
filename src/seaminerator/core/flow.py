@@ -10,12 +10,14 @@ from .audio.recording import RecordingRun
 from .cards import build_back, highlight_html
 from .config import Config
 from .models import ImportedCard, Sentence, WordBlock, parse_imported_text
-from .tags import ORIGIN_TAG, RESERVED_TAGS, normalize_tag
+from .tags import ORIGIN_TAG, RESERVED_TAGS, normalize_tag, topic_label
 
 NOTE_TYPE_NAME = "Sea Minerator"
 FRONT_FIELD = "Front"
 BACK_FIELD = "Back"
 AUDIO_FIELD = "Audio"
+# The sentence's grammar subject, drawn as a badge by the note type.
+TOPIC_FIELD = "Topic"
 LABEL_CLASS = "sm-label"
 AUDIO_WARNING = "audio not recorded, system voice used: "
 SAVE_WARNING = "recording not saved, system voice used: "
@@ -109,9 +111,22 @@ def create_card(
     front = _mined_front(sentence, cfg)
     if sentence.highlight and front == sentence.text:
         warnings.append(f"highlight '{sentence.highlight}' not found in sentence")
-    back = build_back(word, sentence.topics)
+    back = build_back(
+        word,
+        sentence.topics,
+        highlight=sentence.highlight,
+        translation=sentence.translation,
+    )
     audio = _audio_fields(run, speech_text(sentence.text), front, anki, warnings)
-    return _add(word.expression, front, back, deck, anki, warnings, audio)
+    extra = {**audio, **_topic_fields(cfg, sentence.topics)}
+    return _add(word.expression, front, back, deck, anki, warnings, extra)
+
+
+def _topic_fields(cfg: Config, topics: Sequence[str]) -> dict[str, str]:
+    # Left out when empty, not set to "": a vocabulary card then works on a
+    # note type the user never added the field to, and looks the same.
+    label = topic_label(topics) if cfg.topic_badge else ""
+    return {TOPIC_FIELD: label} if label else {}
 
 
 def _mined_front(sentence: Sentence, cfg: Config) -> str:
@@ -168,19 +183,27 @@ def _colored(text: str, highlights: Sequence[tuple[int, int]], color: str) -> st
 
 
 def imported_front(
-    front: str, highlights: Sequence[tuple[int, int]] = (), color: str = ""
+    front: str,
+    highlights: Sequence[tuple[int, int]] = (),
+    color: str = "",
+    *,
+    drop_grammar_label: bool = False,
 ) -> str:
     # A leading "[Grammar]" becomes an empty span the note type's CSS draws
     # as "[Grammar] ": it stays visible on the card but is not in the field's
     # text, so the {{tts}} audio reads only the sentence. `highlights` are
-    # offsets into `front`, colored like a mined card's highlight.
+    # offsets into `front`, colored like a mined card's highlight. With
+    # `drop_grammar_label`, a "[Grammar]" label is left out: the Topic badge
+    # says more. Any other label stays.
     match = _LABEL_PREFIX.match(front)
     if not match:
         return _colored(front, highlights, color)
-    label = html.escape(match.group(1), quote=True)
     offset = match.start(2)
     shifted = [(a - offset, b - offset) for a, b in _after_label(highlights, offset)]
     rest = _colored(match.group(2), shifted, color)
+    if drop_grammar_label and match.group(1).strip().lower() == "grammar":
+        return rest
+    label = html.escape(match.group(1), quote=True)
     return f'<span class="{LABEL_CLASS}" data-label="{label}"></span>{rest}'
 
 
@@ -239,12 +262,19 @@ def create_imported_card(
     run: RecordingRun | None = None,
 ) -> CardResult:
     warnings: list[str] = []
-    front = imported_front(card.front, card.highlights, cfg.highlight_color)
+    tag = normalize_tag(topic)
+    front = imported_front(
+        card.front,
+        card.highlights,
+        cfg.highlight_color,
+        drop_grammar_label=cfg.topic_badge and bool(tag),
+    )
     text = speech_text(card.front, strip_label=True)
     audio = _audio_fields(run, text, front, anki, warnings)
     colored_back = _colored(card.back, card.back_highlights, cfg.highlight_color)
     back = imported_back(colored_back, topic)
-    return _add(card.front, front, back, deck, anki, warnings, audio)
+    extra = {**audio, **_topic_fields(cfg, [tag] if tag else [])}
+    return _add(card.front, front, back, deck, anki, warnings, extra)
 
 
 def create_imported_cards(

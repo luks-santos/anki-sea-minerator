@@ -29,6 +29,13 @@ there; editing this JSON directly is never required.
   dropped: other add-ons' voices are not supported.
 - `tts_speed` — speaking speed from `0.5` to `2.0`; `1.0` is normal.
 - `highlight_color` — CSS color for the studied expression on the front.
+- `topic_badge` — `true` (default) fills the note's `Topic` field with the
+  sentence's grammar subject (the mined topics, or the import's Topic box)
+  and shows it as a badge above the sentence. Adding the field to an existing
+  Sea Minerator note type makes the next sync a one-time full sync, so it is
+  only added after asking, the first time a card would need it; declining
+  sets this to `false`. With `false`, cards are created without a Topic and a
+  pasted `[Grammar]` label stays on the front.
 - `audio` — where card audio comes from:
   - `source`: `system` (default: the device's voices through `{{tts}}`),
     `google` (Google Translate, an unofficial endpoint) or `gemini` (Gemini

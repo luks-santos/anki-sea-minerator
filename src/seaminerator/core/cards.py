@@ -17,9 +17,20 @@ def highlight_html(text: str, highlight: str, color: str) -> str:
     return text[:start] + span + text[end:]
 
 
-def build_back(word: WordBlock, topics: list[str] | None = None) -> str:
-    translations = ", ".join(word.translations)
-    expression = word.expression
+def build_back(
+    word: WordBlock,
+    topics: list[str] | None = None,
+    *,
+    highlight: str = "",
+    translation: str = "",
+) -> str:
+    # A sentence's own translation agrees with its subject and tense, so it
+    # goes with the expression as the sentence writes it ("I have bought" ->
+    # "Have bought: comprei"); without one, the word's translations stay.
+    if translation:
+        expression, translations = highlight or word.expression, translation
+    else:
+        expression, translations = word.expression, ", ".join(word.translations)
     capitalized = expression[:1].upper() + expression[1:] if expression else expression
     grammar = class_label(word.class_tag)
     if topics:

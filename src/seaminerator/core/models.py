@@ -10,6 +10,9 @@ from .tags import CLASS_TAGS, RESERVED_TAGS, normalize_tag
 class Sentence:
     text: str
     highlight: str
+    # The highlight's translation as this sentence uses it; "" when the
+    # model didn't give one, and the back falls back to the word's.
+    translation: str = ""
     note: str = ""
     topics: list[str] = field(default_factory=list)
 
@@ -75,6 +78,8 @@ def _sentence_from_dict(data: dict, existing: dict[str, str]) -> Sentence:
     return Sentence(
         text=_require_str(data["text"], "text"),
         highlight=_require_str(data.get("highlight", ""), "highlight"),
+        # null like missing: the field only improves the back (see Sentence).
+        translation=_require_str(data.get("translation") or "", "translation"),
         note=_require_str(data.get("note", ""), "note"),
         topics=_topics_from(data.get("topics"), existing),
     )

@@ -6,6 +6,7 @@ from aqt import mw
 from aqt.operations import QueryOp
 from aqt.qt import (
     QApplication,
+    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -243,6 +244,12 @@ class SettingsDialog(QDialog):
         self._color_edit = QLineEdit(self._cfg.highlight_color)
         form.addRow("Highlight:", self._color_edit)
 
+        # The Topic field is only added on the first card that needs it,
+        # after asking (it forces a full sync); Save never adds it.
+        self._topic_check = QCheckBox("Show the grammar subject as a badge")
+        self._topic_check.setChecked(self._cfg.topic_badge)
+        form.addRow("", self._topic_check)
+
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Save
             | QDialogButtonBox.StandardButton.Cancel
@@ -316,6 +323,7 @@ class SettingsDialog(QDialog):
             native_language=self._language_box.currentData(),
             prompts=self._prompts,
             audio=self._audio_settings(),
+            topic_badge=self._topic_check.isChecked(),
         )
 
     def _show_voice(self, cfg: Config) -> None:
@@ -525,6 +533,7 @@ class SettingsDialog(QDialog):
             self._color_edit.setText(self._cfg.highlight_color)
             self._show_language(self._cfg.native_language)
             self._show_audio(self._cfg.audio)
+            self._topic_check.setChecked(self._cfg.topic_badge)
 
 
 class _JsonEditor(QDialog):

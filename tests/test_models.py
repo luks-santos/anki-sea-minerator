@@ -235,6 +235,37 @@ def test_parse_rejects_non_string_note():
         parse_mining_response(payload)
 
 
+def test_parse_reads_each_sentence_s_translation():
+    payload = sample_payload()
+    payload["words"][0]["sentences"][1]["translation"] = "comprei, já comprei"
+
+    sentence = parse_mining_response(payload)[0].sentences[1]
+
+    assert sentence.translation == "comprei, já comprei"
+
+
+def test_parse_without_a_translation_leaves_it_empty():
+    sentences = parse_mining_response(sample_payload())[0].sentences
+
+    assert [s.translation for s in sentences] == ["", ""]
+
+
+def test_a_null_translation_reads_as_none_given():
+    # The field only improves the back, so a model answering null mustn't
+    # fail the whole run: the back falls back to the word's translations.
+    payload = sample_payload()
+    payload["words"][0]["sentences"][0]["translation"] = None
+
+    assert parse_mining_response(payload)[0].sentences[0].translation == ""
+
+
+def test_parse_rejects_non_string_translation():
+    payload = sample_payload()
+    payload["words"][0]["sentences"][0]["translation"] = 7
+    with pytest.raises(ValueError, match="translation"):
+        parse_mining_response(payload)
+
+
 def test_parse_rejects_non_string_explanation():
     payload = sample_payload()
     payload["words"][0]["explanation"] = ["a", "b"]

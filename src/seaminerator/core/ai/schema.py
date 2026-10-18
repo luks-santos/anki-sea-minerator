@@ -14,10 +14,13 @@ def mining_schema() -> dict:
         "properties": {
             "text": dict(string),
             "highlight": dict(string),
+            # The highlight's translation as this sentence uses it, so the
+            # card's back agrees with the sentence's subject and tense.
+            "translation": dict(string),
             "note": dict(string),
             "topics": dict(string_list),
         },
-        "required": ["text", "highlight", "topics"],
+        "required": ["text", "highlight", "translation", "topics"],
     }
     word = {
         "type": "object",

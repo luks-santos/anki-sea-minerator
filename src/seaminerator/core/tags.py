@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from collections.abc import Sequence
 
 ORIGIN_TAG = "anki-sea-minerator"
 
@@ -70,3 +71,9 @@ def topic_vocabulary(all_tags: list[str]) -> list[str]:
 
 def class_label(tag: str) -> str:
     return tag.replace("-", " ").capitalize()
+
+
+def topic_label(topics: Sequence[str]) -> str:
+    """The grammar topics as the card's badge reads them: "Past simple · Verb to be"."""
+    names = (" ".join(re.sub(r"[-_]", " ", t).split()).capitalize() for t in topics)
+    return " · ".join(name for name in names if name)
