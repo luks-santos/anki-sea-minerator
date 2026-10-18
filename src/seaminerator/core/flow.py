@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import html
 import re
-from dataclasses import dataclass
+from collections.abc import Sequence
+from dataclasses import dataclass, replace
 
 from .audio.base import speech_text
 from .audio.recording import RecordingRun
@@ -144,15 +145,43 @@ def mined_speech(
     ]
 
 
-def imported_front(front: str) -> str:
+def _after_label(
+    highlights: Sequence[tuple[int, int]], start: int
+) -> tuple[tuple[int, int], ...]:
+    # The label is drawn by CSS, not written in the field, so a highlight on
+    # it would color nothing: keep only what falls after `start`.
+    return tuple((max(a, start), b) for a, b in highlights if b > start)
+
+
+def _colored(text: str, highlights: Sequence[tuple[int, int]], color: str) -> str:
+    parts: list[str] = []
+    last = 0
+    for start, end in sorted(highlights):
+        start = max(start, last)
+        if start >= end:
+            continue
+        parts.append(text[last:start])
+        parts.append(f'<span style="color:{color}">{text[start:end]}</span>')
+        last = end
+    parts.append(text[last:])
+    return "".join(parts)
+
+
+def imported_front(
+    front: str, highlights: Sequence[tuple[int, int]] = (), color: str = ""
+) -> str:
     # A leading "[Grammar]" becomes an empty span the note type's CSS draws
     # as "[Grammar] ": it stays visible on the card but is not in the field's
-    # text, so the {{tts}} audio reads only the sentence.
+    # text, so the {{tts}} audio reads only the sentence. `highlights` are
+    # offsets into `front`, colored like a mined card's highlight.
     match = _LABEL_PREFIX.match(front)
     if not match:
-        return front
+        return _colored(front, highlights, color)
     label = html.escape(match.group(1), quote=True)
-    return f'<span class="{LABEL_CLASS}" data-label="{label}"></span>{match.group(2)}'
+    offset = match.start(2)
+    shifted = [(a - offset, b - offset) for a, b in _after_label(highlights, offset)]
+    rest = _colored(match.group(2), shifted, color)
+    return f'<span class="{LABEL_CLASS}" data-label="{label}"></span>{rest}'
 
 
 def imported_back(back: str, topic: str) -> str:
@@ -169,8 +198,11 @@ class ImportPlan:
     topic: str  # normalized; "" when there is none
 
 
-def prepare_import(text: str, topic: str) -> ImportPlan:
-    cards, warnings = parse_imported_text(text)
+def prepare_import(
+    text: str, topic: str, highlights: Sequence[tuple[int, int]] = ()
+) -> ImportPlan:
+    """The cards to create from pasted text; `highlights` are offsets in `text`."""
+    cards, warnings = parse_imported_text(text, highlights)
 
     kept: list[ImportedCard] = []
     for card in cards:
@@ -179,6 +211,11 @@ def prepare_import(text: str, topic: str) -> ImportPlan:
             # "[Grammar]" alone would become an empty note (Anki rejects it
             # as empty with a misleading "duplicate or empty" message).
             warnings.append(f"card '{card.front}' skipped: the front has only a label")
+        elif match:
+            # Dropped here, not only when building the front, so the status
+            # counts only highlights that will show.
+            only_text = _after_label(card.highlights, match.start(2))
+            kept.append(replace(card, highlights=only_text))
         else:
             kept.append(card)
 
@@ -202,10 +239,11 @@ def create_imported_card(
     run: RecordingRun | None = None,
 ) -> CardResult:
     warnings: list[str] = []
-    front = imported_front(card.front)
+    front = imported_front(card.front, card.highlights, cfg.highlight_color)
     text = speech_text(card.front, strip_label=True)
     audio = _audio_fields(run, text, front, anki, warnings)
-    back = imported_back(card.back, topic)
+    colored_back = _colored(card.back, card.back_highlights, cfg.highlight_color)
+    back = imported_back(colored_back, topic)
     return _add(card.front, front, back, deck, anki, warnings, audio)
 
 
@@ -220,10 +258,12 @@ def create_imported_cards(
     return [create_imported_card(c, cfg, deck, anki, topic, run) for c in cards]
 
 
-def imported_speech(cards: list[ImportedCard], anki) -> list[str]:
+def imported_speech(cards: list[ImportedCard], cfg: Config, anki) -> list[str]:
     """The fronts to record: those not in the collection yet (see mined_speech)."""
     return [
         speech_text(card.front, strip_label=True)
         for card in cards
-        if not _exists(imported_front(card.front), anki)
+        if not _exists(
+            imported_front(card.front, card.highlights, cfg.highlight_color), anki
+        )
     ]

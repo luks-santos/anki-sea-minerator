@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 
 from .flow import CardResult
-from .models import Sentence, WordBlock
+from .models import Sentence, WordBlock, line_spans
 from .tags import normalize_tag
 
 
@@ -54,15 +54,66 @@ def sentence_details(sentence: Sentence) -> str:
     return " · ".join(details)
 
 
-def import_status(card_count: int, warnings: list[str], limit: int = 5) -> str:
+def import_status(
+    card_count: int, warnings: list[str], limit: int = 5, *, highlighted: int = 0
+) -> str:
     # Capped so a badly formatted paste can't grow the dialog off-screen.
     status = f"{card_count} card(s) ready"
+    if highlighted:
+        status += f" · {highlighted} with a highlight"
     if not warnings:
         return status
     lines = warnings[:limit]
     if len(warnings) > limit:
         lines.append(f"…and {len(warnings) - limit} more")
     return f"{status} · {len(warnings)} problem(s):\n" + "\n".join(lines)
+
+
+Span = tuple[int, int]
+
+
+def _merged(spans: list[Span]) -> list[Span]:
+    merged: list[Span] = []
+    for start, end in sorted(spans):
+        if merged and start <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+        elif start < end:
+            merged.append((start, end))
+    return merged
+
+
+def selection_on_lines(text: str, start: int, end: int) -> list[Span]:
+    """The parts of a selection in pasted text that fall on card lines."""
+    parts = ((max(start, a), min(end, b)) for a, b in line_spans(text))
+    return [(a, b) for a, b in parts if a < b]
+
+
+def toggle_highlights(current: list[Span], selection: list[Span]) -> list[Span]:
+    """Ctrl+B in the importer: highlight the selection, or clear it.
+
+    A selection that is already highlighted all the way through is cleared;
+    anything else becomes highlighted, joined with the parts it touches.
+    """
+    current = _merged(current)
+    selection = _merged(selection)
+
+    def covered(start: int, end: int) -> bool:
+        return any(a <= start and end <= b for a, b in current)
+
+    if selection and all(covered(a, b) for a, b in selection):
+        kept: list[Span] = []
+        for a, b in current:
+            pieces = [(a, b)]
+            for s, e in selection:
+                pieces = [
+                    piece
+                    for x, y in pieces
+                    for piece in ((x, min(y, s)), (max(x, e), y))
+                    if piece[0] < piece[1]
+                ]
+            kept.extend(pieces)
+        return _merged(kept)
+    return _merged(current + selection)
 
 
 def failure_lines(results: list[CardResult]) -> list[str]:

@@ -4,6 +4,7 @@ from seaminerator.core.models import (
     ImportedCard,
     Sentence,
     WordBlock,
+    line_spans,
     parse_imported_text,
     parse_mining_response,
 )
@@ -239,3 +240,46 @@ def test_parse_rejects_non_string_explanation():
     payload["words"][0]["explanation"] = ["a", "b"]
     with pytest.raises(ValueError, match="explanation"):
         parse_mining_response(payload)
+
+
+# "could" is at 14-19, the back line starts at 25, and the second front is
+# indented: its text starts at 49 and "couldn't" sits at 57-65.
+PASTE = (
+    "[Grammar] You could try.\n"
+    "Você poderia tentar.\n"
+    "\n"
+    "  The boy couldn't sleep.\n"
+    "O menino não dormia."
+)
+
+
+def test_parse_imported_text_maps_each_highlight_onto_its_front():
+    cards, _warnings = parse_imported_text(PASTE, [(14, 19), (57, 65)])
+
+    assert cards == [
+        ImportedCard(
+            "[Grammar] You could try.", "Você poderia tentar.", highlights=((14, 19),)
+        ),
+        ImportedCard(
+            "The boy couldn't sleep.", "O menino não dormia.", highlights=((8, 16),)
+        ),
+    ]
+
+
+def test_a_highlight_on_the_back_line_goes_to_the_back():
+    # "Você" starts the back line, at 25.
+    cards, _warnings = parse_imported_text(PASTE, [(25, 29)])
+
+    assert cards[0].highlights == ()
+    assert cards[0].back_highlights == ((0, 4),)
+
+
+def test_a_highlight_across_both_lines_splits_between_front_and_back():
+    cards, _warnings = parse_imported_text(PASTE, [(20, 30)])
+
+    assert cards[0].highlights == ((20, 24),)
+    assert cards[0].back_highlights == ((0, 5),)
+
+
+def test_line_spans_cover_every_front_and_back_line():
+    assert line_spans(PASTE) == [(0, 24), (25, 45), (49, 72), (73, 93)]
