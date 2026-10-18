@@ -43,7 +43,9 @@ change — Anki does not hot-reload add-ons.
 
 Anki may write a `meta.json` into `src/seaminerator/` the first time you save
 config from the UI (config edited through the dialog is stored there,
-per-addon). That file is generated, not source — do not commit it.
+per-addon). That file is generated, not source — do not commit it. It holds
+your API keys, so `scripts/build.sh` always leaves it (and `user_files/`)
+out of the package, and refuses to finish if either got in.
 
 ### Alternative: `sys.path` shim (config unavailable)
 
