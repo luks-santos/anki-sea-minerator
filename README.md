@@ -1,233 +1,140 @@
 # Sea Minerator
 
-An [Anki](https://apps.ankiweb.net/) add-on that mines a list of English
-vocabulary into flashcards, powered by the AI provider you choose: Google
-Gemini, OpenAI or a compatible service, Anthropic's Claude, or a local model.
+**Turn the English words you pick up each day into Anki cards you'll remember.**
 
-## What it does
+Sea Minerator is an [Anki](https://apps.ankiweb.net/) add-on. Paste your list
+of new words, an AI writes short example sentences for each one, you keep the
+ones you like, and each sentence becomes a card: the word highlighted,
+translated the way that sentence uses it, with audio and a badge naming its
+grammar.
 
-You open `Tools → Mine vocabulary…` in Anki, paste a "list of the day" (one
-word or expression per line), and pick a target deck. Your AI provider returns
-structured data for each item — a short explanation, its grammar class,
-translations, and example sentences with the mined expression marked, each
-with a usage note and the grammar topics it exercises. You review the
-sentences and check off which ones should become cards. On
-confirmation, Sea Minerator creates one Anki note per selected sentence, all
-under a single undo step, and shows a summary of what was created.
+<p align="center">
+  <img src="docs/images/card-front.png" width="49%" alt="Card front: a 'Present perfect' badge above the sentence 'I have bought a new car.', with 'have bought' in blue and a play button">
+  <img src="docs/images/card-back.png" width="49%" alt="Card back: the sentence, then 'Have bought: comprei, já comprei (Verb · present-perfect)'">
+</p>
 
-Everything runs inside Anki's own process: there is no external server, no
-AnkiConnect, and no CLI. The add-on talks to the provider directly over HTTP(S)
-and writes notes straight into your collection.
+## Is it for you?
 
-## How a card looks
+Everyone learns English their own way. Sea Minerator is built around one of
+them, the one I use every day: **learn each word inside a real sentence, hear
+it, and review it with spaced repetition.**
 
-Cards use their own note type, **Sea Minerator**, created automatically the
-first time you mine:
+It fits you if:
 
-- **Front:** the example sentence, with the mined expression highlighted in
-  color. It plays the card's recording when it has one (the **Audio** field,
-  filled by a recorded audio source), and otherwise speaks the sentence with
-  Anki's `{{tts}}` tag.
-- **Topic:** when the sentence exercises a grammar subject, a small badge
-  above it names it, e.g. `Present perfect` or `Past simple · Verb to be`. A
-  vocabulary-only sentence has no badge. The badge is the note's **Topic**
-  field, so `topic:"Present perfect"` in the Browse window finds those cards.
-- **Back:** the highlighted expression as the sentence uses it, its
-  translation in that same sentence (same subject and tense), and in
-  parentheses its grammar class plus the grammar topics, e.g.
-  `Have bought: comprei, já comprei (Verb · present-perfect)` for "I have
-  bought a new car." The class always comes from a fixed list (`Noun`,
-  `Verb`, `Phrasal verb`, `Idiom`, `Expression`…), so it can be searched
-  reliably: `"back:*(Phrasal verb*"` in the Browse window finds every phrasal
-  verb.
-- **Tags:** only `anki-sea-minerator`, so mined cards can be told apart.
+- you collect new words and expressions during the day (from series, work,
+  music, classes) and want them in Anki without typing every card;
+- you'd rather remember *"I have bought a new car"* than *"buy, bought,
+  bought"*;
+- you want to hear each sentence and see its grammar (present perfect,
+  phrasal verb, modal verbs…) right on the card.
 
-A note type made by an older version has no Topic field. Adding one makes
-the next sync a one-time full sync, so the first time a card would get a
-badge, Sea Minerator asks first. If you decline, cards are created without
-it; turn **Show the grammar subject as a badge** back on in the settings to
-be asked again.
+It's probably not for you if you want ready-made decks, word → definition
+cards, or a language other than English to learn. Explanations and
+translations, though, come in your own language: 20 are available, from
+Portuguese and Spanish to Japanese and Arabic.
+
+## How it works
+
+**1. Paste your list of the day.** In Anki, open `Tools → Mine vocabulary…`,
+type one word or expression per line, choose a deck and click **Mine**.
+
+<p align="center">
+  <img src="docs/images/mine-list.png" width="520" alt="The Mine vocabulary window with 'give up', 'have bought' and 'blizzard' typed in, and the target deck 'English'">
+</p>
+
+**2. Keep the sentences you like.** For each word you get a short explanation
+in your language, its translations, its class and example sentences. Check
+the ones that should become cards.
+
+<p align="center">
+  <img src="docs/images/mine-review.png" width="760" alt="The review screen: each word with its class, translations, explanation, and example sentences with checkboxes">
+</p>
+
+**3. Study.** Click **Create cards**. Each checked sentence is one card:
+
+- **Front:** the sentence, with the word in color, and its audio. A badge
+  names the grammar subject (`Present perfect`, `Modal verbs`…); a
+  vocabulary-only sentence has none.
+- **Back:** the word as the sentence uses it, its translation *in that
+  sentence* (same person and tense), its class and its grammar topic.
+
+The whole batch is one undo step (`Edit → Undo`).
+
+### Already have your sentences?
+
+Got them from a class, a book or a teacher? `Tools → Import cards…` turns them
+into the same kind of card, without the AI. Paste a front line and a back
+line for each card, select a part and press **Ctrl+B** to highlight it, and
+pick the grammar topic: it becomes the badge.
+
+<p align="center">
+  <img src="docs/images/import.png" width="640" alt="The Import cards window: three sentences about 'could' with their translations, the studied words highlighted in blue, topic 'modal verbs'">
+</p>
 
 ## Install
 
-1. Download `sea-minerator.ankiaddon` (see [Building from source](#building-from-source)
-   if you're building it yourself rather than getting a released copy).
-2. In Anki: `Tools → Add-ons → Install from file…`, pick the `.ankiaddon`
-   file, then restart Anki.
+Sea Minerator runs in Anki for desktop (Windows, macOS or Linux) and is
+developed and tested on Anki 26.9. The cards it creates also work in
+AnkiDroid and AnkiMobile.
 
-## Setup
+Sea Minerator will be on AnkiWeb soon. Until then, build the add-on file
+from this repository:
 
-1. Open `Tools → Sea Minerator settings…` (or `Tools → Add-ons`, select
-   **Sea Minerator**, click **Config**).
-2. Pick a provider:
-   - **Gemini**: free key from [Google AI Studio](https://aistudio.google.com/).
-   - **OpenAI & compatible**: an OpenAI key, or change the base URL to
-     another compatible service (OpenRouter, Groq…) and use its key. The
-     service and model must support `json_schema` structured outputs; some
-     don't (DeepSeek's API, for instance, only offers plain JSON mode).
-   - **Anthropic**: a key from the [Anthropic Console](https://console.anthropic.com/).
-   - **Local**: run [Ollama](https://ollama.com/) or LM Studio; no key needed.
-     The base URL defaults to Ollama (`http://localhost:11434/v1`); for LM
-     Studio use `http://localhost:1234/v1`. Pick a model that supports
-     structured output.
-3. Paste the key, click **Load models**, choose a model, and **Test connection**.
-4. **Save**.
-
-Keys are stored in plain text in Anki's add-on folder.
-
-The settings dialog also sets:
-
-- `native_language` — your language; explanations and translations of mined
-  words are written in it. The mining screen asks for it the first time.
-- `default_deck` — the deck pre-selected in the wizard.
-- `tts_lang` — the language passed to Anki's `{{tts}}` tag, e.g. `en_US`.
-  Changing it rewrites the note type's template, which affects existing cards.
-- `tts_voices` and `tts_speed` — the voice and speaking speed. The dialog
-  lists this computer's voices for the language, with **▶ Preview**; type a
-  phone's voice after a comma so each device uses the first one it has.
-  Voices other add-ons register, like AwesomeTTS's, are not supported: they
-  need that add-on's own setup and don't exist on phones.
-  Like `tts_lang`, they reach the note type the next time you create or
-  import cards, and then apply to existing cards too.
-- `highlight_color` — the CSS color used for the studied expression.
-- `audio` — **Audio source**: the system voice (default), or a recording
-  made when each card is created, by Google Translate (free, unofficial) or
-  Gemini (your Gemini key; free tier limited to about 100 sentences a day).
-  Recorded cards sound the same on every device. Gemini is backed up by
-  Google Translate; if no source can record a sentence, its card uses the
-  system voice and the summary says why. Sentences are sent to the chosen
-  service (and, with Gemini, to Google Translate for any Gemini can't
-  record). The first time you pick a recorded source, the
-  dialog adds an Audio field to the note type: sync your other devices
-  first, because the next sync will be a one-time full sync (choose Upload).
-
-**Edit prompt…**, next to the native language, shows the prompt the model
-receives for that language and lets you change it; **Reset to default** brings
-back the built-in one. Brazilian Portuguese has a tuned prompt; the other
-languages share a generic one. The response format and the grammar class and
-topic rules are always added after your text, so an edit can't break them.
-
-See `src/seaminerator/config.md` for the full reference.
-
-## Usage
-
-`Tools → Mine vocabulary…` opens the wizard:
-
-1. Paste your list and choose a deck, then click **Mine**.
-2. Review each word's sentences and check the ones you want as cards. Each
-   word shows its explanation and its grammar class, which you can change in
-   the dropdown; each sentence shows its usage note and grammar topics.
-3. Click **Create cards**. Anki creates them as one batch, undoable in one
-   step (`Edit → Undo`).
-4. The summary screen shows how many cards were created and any warnings
-   (for example, a sentence where the expression text couldn't be located to
-   highlight).
-
-### Importing ready-made cards
-
-`Tools → Import cards…` creates cards from text you already have, without
-the AI. Paste one card per block: the front on one line, the back on the
-next, and a blank line between cards:
-
-```text
-[Grammar] I've just arrived. I have just arrived.
-Eu acabei de chegar.
-
-[Grammar] Have you seen him?
-Você viu ele?
+```bash
+bash scripts/build.sh    # creates dist/sea-minerator.ankiaddon
 ```
 
-Pick a topic (e.g. `present perfect`) and a deck, then **Create cards**.
+In Anki, open `Tools → Add-ons → Install from file…`, pick
+`sea-minerator.ankiaddon`, and restart Anki.
 
-- The back gets the topic in parentheses: `Eu acabei de chegar. (present-perfect)`.
-- The topic also becomes the card's badge (`Present perfect`), which takes
-  the place of a leading `[Grammar]` on the front. Any other leading `[Label]`
-  is still shown on the card, and the audio reads only the sentence.
-- Blocks without exactly two lines, and fronts that are only a `[Label]`, are
-  skipped and listed.
-- A card whose sentence already exists on a Sea Minerator card is rejected
-  as a duplicate, whatever its label, since it would say the same thing.
-- The whole import is one undo step (`Edit → Undo Import cards`).
+## Set up
 
-## Audio
+Open `Tools → Sea Minerator settings…`:
 
-Each card's sentence is spoken in one of two ways, chosen with **Audio
-source** in the settings:
+1. Choose your native language.
+2. Choose an AI provider and paste its key:
+   - **Gemini**: the easiest start, with a free key from
+     [Google AI Studio](https://aistudio.google.com/);
+   - **OpenAI** or a compatible service (OpenRouter, Groq…);
+   - **Anthropic** (Claude);
+   - **Local**: a model running on your computer with
+     [Ollama](https://ollama.com/) or LM Studio, no key needed.
+3. Click **Load models**, pick one, **Test connection**, then **Save**.
 
-- **System voice** (the default): nothing is recorded. The front uses
-  Anki's `{{tts}}` tag, described below.
-- **Recorded** (Google Translate or Gemini): when a card is created, its
-  sentence is recorded to an MP3 stored in the collection's media and in the
-  card's **Audio** field, so it sounds the same on every device, AnkiWeb
-  included. With Gemini, a sentence Gemini can't record (or every sentence
-  after Gemini stops, e.g. when its daily quota is reached) is recorded with
-  Google Translate instead. If no source can record it (no network, the
-  services are down), the card is still created and uses the system voice;
-  the summary says which cards and why. Things to know:
-  - Sentences are sent to the chosen service, and with Gemini to Google
-    Translate for the ones Gemini can't record. Google Translate's endpoint
-    is unofficial and may stop working; Gemini uses your Gemini API key, and
-    its free tier allows about 100 sentences a day.
-  - Gemini's default TTS model is `gemini-3.8-flash-lite-tts`; the older
-    2.5 and 3.1 TTS models stop working on 2026-11-17.
-  - Gemini audio is converted to MP3 with LAME, which Anki bundles on
-    Windows and macOS. On Linux, install the `lame` package, or Gemini cards
-    will use the system voice.
-  - Undoing a batch removes its cards; their MP3 files stay in the media
-    folder until **Tools → Check Media** removes them, as with any audio.
+<p align="center">
+  <img src="docs/images/settings.png" width="560" alt="The Sea Minerator settings window: native language, provider, API key, model, default deck, audio and highlight color">
+</p>
 
-### What `{{tts}}` can and can't do
+By default the cards speak with your computer's own voice. For a recording
+that sounds the same on every device, set **Audio source** to Google
+Translate (free, unofficial) or Gemini.
 
-With the system voice, and for any card without a recording, the front
-uses Anki's native `{{tts}}` tag, which asks whatever is running Anki to
-speak the sentence using **the operating system's own text-to-speech
-voices** at review time. That has real consequences worth knowing before
-you rely on it:
+**Privacy:** the add-on has no server of its own. Your list of words goes to
+the AI provider you chose, with the grammar topics already in your
+collection, so new cards reuse them. If you chose a recorded audio source,
+the sentences go to that service (Gemini falls back to Google Translate).
+Your key is stored in plain text in Anki's add-on folder on your computer.
 
-- **Requires Anki 2.1.20+ on desktop**, AnkiDroid 2.17+, or AnkiMobile
-  2.0.56+. Older clients will show the tag literally instead of speaking it.
-- **No support on plain Linux.** Desktop TTS depends on the OS having a
-  speech engine installed and configured (macOS and Windows ship one;
-  Anki's `{{tts}}` support does not extend to typical bare Linux setups
-  without extra configuration you'd have to do yourself).
-- **Voice quality and availability depend on what's installed on each
-  device.** The same card can sound different — or silent — on different
-  computers or phones, because it's playing through whatever local voices
-  exist there, not a bundled recording. Choosing voices in the settings
-  pins them by name where they exist; a device without any of them still
-  falls back to its first voice for the language.
-- **Probably does not work on AnkiWeb.** AnkiWeb's browser-based reviewer
-  does not reliably support `{{tts}}`; treat cards as desktop/mobile-app
-  only if audio matters to you.
+## Learn more
 
-If your study setup depends on hearing every card reliably in the browser or
-on Linux, choose a recorded audio source: recorded cards play everywhere,
-and only cards whose recording failed depend on `{{tts}}`.
+- [User guide](docs/guide.md): what goes on each card and how to search for
+  it, importing rules, every setting, and audio in depth.
+- [Development](docs/development.md): run the add-on straight from this
+  repository and run the tests.
 
 ## Building from source
 
-Only one runtime dependency, `httpx`, and its own transitive dependencies are
-used, and they are vendored into the repo (`src/seaminerator/_vendor/`)
-rather than installed at runtime — an `.ankiaddon` has no install step, so
-whatever the add-on imports has to ship inside the zip. `_vendor/` is
-committed on purpose for that reason; `dist/`, the built zip, is not (see
-`.gitignore`).
+The add-on's only runtime dependency, `httpx`, is vendored into
+`src/seaminerator/_vendor/` with its own dependencies, because an
+`.ankiaddon` has no install step. Only pure-Python packages belong there,
+since the add-on ships as one zip for every platform.
 
 ```bash
 bash scripts/vendor.sh   # (re)populate src/seaminerator/_vendor/
 bash scripts/build.sh    # produce dist/sea-minerator.ankiaddon
 ```
 
-Only `httpx` and its transitive dependencies may be vendored, and only
-because they're pure Python — no package with C extensions belongs in
-`_vendor/`, since the add-on ships as one platform-independent zip. See the
-comments at the top of `scripts/vendor.sh` if you ever change the
-dependency.
-
-## Development
-
-See `docs/development.md` for running the add-on straight from this repo
-(without building a `.ankiaddon`) and for running the test suite.
+For development:
 
 ```bash
 pip install -e ".[dev]"
@@ -239,4 +146,4 @@ mypy src
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT, see [LICENSE](LICENSE).
