@@ -21,6 +21,13 @@ def test_brazilian_portuguese_has_a_dedicated_prompt():
     assert "Respond ONLY with JSON" not in prompt
 
 
+def test_brazilian_portuguese_prompt_warns_against_ter_participio():
+    # "Tenho visto" reads as a repeated action, not the finished "I have seen".
+    assert "ter + particípio" in PT_BR_PROMPT
+    assert "vi, já vi" in PT_BR_PROMPT
+    assert "conheço há anos" in PT_BR_PROMPT
+
+
 def test_other_languages_fill_the_template_with_their_english_name():
     prompt = default_prompt("es")
 

@@ -18,6 +18,15 @@ For EACH item, produce data following these rules:
   Portuguese.
 - Translations: the most common Portuguese translations, based on Reverso Context
   (https://context.reverso.net/traducao/).
+- Translate verb tenses by meaning, not by form. Portuguese "ter + particípio"
+  (tenho visto, tem feito) means an action repeated or still going on up to
+  now, so it rarely matches the English present perfect. Use the pretérito
+  perfeito for a finished action or a life experience ("I have seen that
+  movie" -> vi, já vi; "I haven't called her" -> não liguei, ainda não
+  liguei), the presente for a state that still holds ("I have known him for
+  years" -> conheço há anos), and "ter + particípio" only when the sentence
+  says the action keeps repeating up to now ("She has called a lot lately" ->
+  tem ligado muito).
 - Class tag and topics: follow the tagging rules given after these instructions.
 - Sentences: exactly 5 natural English sentences, each 20 to 50 characters,
   authentic to everyday speech, drawing on Cambridge Dictionary, DK EFE
