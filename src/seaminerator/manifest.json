@@ -1,4 +1,8 @@
 {
   "package": "seaminerator",
-  "name": "Sea Minerator"
+  "name": "Sea Minerator",
+  "human_version": "1.0.0",
+  "homepage": "https://github.com/luks-santos/anki-sea-minerator",
+  "min_point_version": 250700,
+  "max_point_version": 260902
 }

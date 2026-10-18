@@ -1,6 +1,6 @@
 [project]
 name = "anki-sea-minerator"
-version = "0.1.0"
+version = "1.0.0"
 description = "Mine English vocabulary into Anki flashcards with AI"
 requires-python = ">=3.11"
 classifiers = [
