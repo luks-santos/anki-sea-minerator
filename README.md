@@ -76,10 +76,14 @@ pick the grammar topic: it becomes the badge.
 Sea Minerator needs Anki 25.07 or later for desktop (Windows, macOS or
 Linux). The cards it creates also work in AnkiDroid and AnkiMobile.
 
-Download `sea-minerator.ankiaddon` from the
-[latest release](https://github.com/luks-santos/anki-sea-minerator/releases/latest).
-In Anki, open `Tools → Add-ons → Install from file…`, pick the file, and
-restart Anki. Sea Minerator will also be on AnkiWeb soon.
+In Anki, open `Tools → Add-ons → Get Add-ons…`, paste the code
+**1472156233**, and restart Anki. New versions then arrive through Anki's
+own add-on updates. See the
+[AnkiWeb page](https://ankiweb.net/shared/info/1472156233).
+
+To install from a file instead, download `sea-minerator.ankiaddon` from the
+[latest release](https://github.com/luks-santos/anki-sea-minerator/releases/latest),
+open `Tools → Add-ons → Install from file…`, pick the file, and restart Anki.
 
 ## Set up
 

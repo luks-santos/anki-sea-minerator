@@ -27,6 +27,12 @@ junction, which deletes the link, not the target) before installing a built
 `.ankiaddon` — `manifest.json` declares `"package": "seaminerator"`, so Anki
 would target the same folder name.
 
+The AnkiWeb version installs into `addons21/1472156233/` instead, so with
+the junction in place both copies would load. To switch to it, close Anki,
+`rmdir` the junction, install code 1472156233, and close Anki again. Then
+copy the `config` key from `src/seaminerator/meta.json` into
+`addons21/1472156233/meta.json` to keep your settings.
+
 This matters because `wizard.py` resolves the add-on's config with
 `mw.addonManager.getConfig(__name__.split(".")[0])`, which reads
 `addons21/<folder name>/config.json`. The junction target,
