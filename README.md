@@ -28,13 +28,25 @@ first time you mine:
   color. It plays the card's recording when it has one (the **Audio** field,
   filled by a recorded audio source), and otherwise speaks the sentence with
   Anki's `{{tts}}` tag.
-- **Back:** the expression, its translations, and in parentheses its grammar
-  class plus the grammar topics the sentence exercises, e.g.
-  `Have been: Tenho sido, Estive (Verb · present-perfect)`. The class always
-  comes from a fixed list (`Noun`, `Verb`, `Phrasal verb`, `Idiom`,
-  `Expression`…), so it can be searched reliably: `"back:*(Phrasal verb*"` in
-  the Browse window finds every phrasal verb.
+- **Topic:** when the sentence exercises a grammar subject, a small badge
+  above it names it, e.g. `Present perfect` or `Past simple · Verb to be`. A
+  vocabulary-only sentence has no badge. The badge is the note's **Topic**
+  field, so `topic:"Present perfect"` in the Browse window finds those cards.
+- **Back:** the highlighted expression as the sentence uses it, its
+  translation in that same sentence (same subject and tense), and in
+  parentheses its grammar class plus the grammar topics, e.g.
+  `Have bought: comprei, já comprei (Verb · present-perfect)` for "I have
+  bought a new car." The class always comes from a fixed list (`Noun`,
+  `Verb`, `Phrasal verb`, `Idiom`, `Expression`…), so it can be searched
+  reliably: `"back:*(Phrasal verb*"` in the Browse window finds every phrasal
+  verb.
 - **Tags:** only `anki-sea-minerator`, so mined cards can be told apart.
+
+A note type made by an older version has no Topic field. Adding one makes
+the next sync a one-time full sync, so the first time a card would get a
+badge, Sea Minerator asks first. If you decline, cards are created without
+it; turn **Show the grammar subject as a badge** back on in the settings to
+be asked again.
 
 ## Install
 
@@ -128,8 +140,9 @@ Você viu ele?
 Pick a topic (e.g. `present perfect`) and a deck, then **Create cards**.
 
 - The back gets the topic in parentheses: `Eu acabei de chegar. (present-perfect)`.
-- A leading `[Label]` on the front is still shown on the card, but the audio
-  reads only the sentence.
+- The topic also becomes the card's badge (`Present perfect`), which takes
+  the place of a leading `[Grammar]` on the front. Any other leading `[Label]`
+  is still shown on the card, and the audio reads only the sentence.
 - Blocks without exactly two lines, and fronts that are only a `[Label]`, are
   skipped and listed.
 - A card whose sentence already exists on a Sea Minerator card is rejected

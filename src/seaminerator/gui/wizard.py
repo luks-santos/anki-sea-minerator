@@ -51,6 +51,7 @@ from ..core.session import (
 )
 from ..core.tags import CLASS_TAGS, topic_vocabulary
 from .recording import record_then
+from .topic_field import prepare_topic_field
 
 ADDON = __name__.split(".")[0]
 
@@ -427,6 +428,8 @@ class MineWizard(QDialog):
             return
 
         deck = self._deck_box.currentText()
+        wanted = any(s.topics for _word, sentences in pairs for s in sentences)
+        self._cfg = prepare_topic_field(self, self._cfg, wanted)
         texts = mined_speech(pairs, self._cfg, self._client)
 
         self._creating = True

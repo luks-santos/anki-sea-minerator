@@ -51,6 +51,7 @@ def form_to_config(
     native_language: str = "",
     prompts: dict[str, str] | None = None,
     audio: AudioSettings | None = None,
+    topic_badge: bool = True,
 ) -> Config:
     return Config(
         provider=provider,
@@ -63,6 +64,7 @@ def form_to_config(
         native_language=native_language,
         prompts=dict(prompts or {}),
         audio=audio or AudioSettings(),
+        topic_badge=topic_badge,
     )
 
 

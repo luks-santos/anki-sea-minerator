@@ -94,6 +94,20 @@ def test_create_cards_for_selection_gives_each_card_its_own_topics():
     ]
 
 
+def test_create_card_puts_the_sentence_s_translation_on_the_back():
+    anki = FakeAnki()
+    word = WordBlock("has bought", "", ["comprou"], "verb", [])
+    sentence = Sentence(
+        text="I have bought a new car.",
+        highlight="have bought",
+        translation="comprei, já comprei",
+    )
+
+    create_card(word, sentence, Config(), "English", anki)
+
+    assert anki.notes[0]["fields"]["Back"] == "Have bought: comprei, já comprei (Verb)"
+
+
 def test_create_card_warns_when_highlight_missing():
     anki = FakeAnki()
     sentence = Sentence(text="Totally unrelated.", highlight="give up")
@@ -149,7 +163,10 @@ def test_create_imported_card_turns_the_prefix_into_a_label_and_adds_the_topic()
         front="[Grammar] We had a bad day.", back="Nós tivemos um dia ruim."
     )
 
-    result = create_imported_card(card, Config(), "English", anki, topic="Past Simple")
+    # With the badge declined: a topic then no longer replaces the label.
+    cfg = Config(topic_badge=False)
+
+    result = create_imported_card(card, cfg, "English", anki, topic="Past Simple")
 
     assert result.created is True
     note = anki.notes[0]
@@ -293,3 +310,74 @@ def test_a_back_highlight_is_colored_and_keeps_the_topic_after_it():
     assert anki.notes[0]["fields"]["Back"] == (
         'Eu <span style="color:#2563eb">ouvia</span>. (past-simple)'
     )
+
+
+def test_a_mined_sentence_with_a_grammar_topic_gets_its_badge():
+    anki = FakeAnki()
+    sentence = Sentence(
+        text="She has given up.", highlight="given up", topics=["present-perfect"]
+    )
+
+    create_card(make_word(), sentence, Config(), "English", anki)
+
+    assert anki.notes[0]["fields"]["Topic"] == "Present perfect"
+
+
+def test_a_vocabulary_sentence_gets_no_badge():
+    anki = FakeAnki()
+
+    create_card(make_word(), Sentence("Never give up.", "give up"), Config(), "", anki)
+
+    assert "Topic" not in anki.notes[0]["fields"]
+
+
+def test_a_declined_badge_leaves_the_topic_out():
+    anki = FakeAnki()
+    sentence = Sentence("He gave up.", "gave up", topics=["past-simple"])
+
+    create_card(make_word(), sentence, Config(topic_badge=False), "English", anki)
+
+    assert "Topic" not in anki.notes[0]["fields"]
+
+
+def imported(front, topic="present perfect", cfg=None, highlights=()):
+    anki = FakeAnki()
+    card = ImportedCard(front=front, back="B.", highlights=highlights)
+    create_imported_card(card, cfg or Config(), "English", anki, topic=topic)
+    return anki.notes[0]["fields"]
+
+
+def test_the_import_topic_replaces_the_grammar_label_with_a_badge():
+    fields = imported("[Grammar] You could try.", highlights=((14, 19),))
+
+    assert fields["Front"] == 'You <span style="color:#2563eb">could</span> try.'
+    assert fields["Topic"] == "Present perfect"
+
+
+def test_any_spelling_of_the_grammar_label_is_dropped():
+    assert imported("[grammar] Hi.")["Front"] == "Hi."
+    assert imported("[ Grammar ] Hi.")["Front"] == "Hi."
+
+
+def test_other_labels_stay_next_to_the_badge():
+    lesson = imported("[Grammar lesson] Hi.")
+    informal = imported("[Informal nos EUA] I got a car.")
+
+    assert lesson["Front"].startswith(
+        '<span class="sm-label" data-label="Grammar lesson">'
+    )
+    assert informal["Front"].startswith(
+        '<span class="sm-label" data-label="Informal nos EUA">'
+    )
+    assert informal["Topic"] == "Present perfect"
+
+
+def test_without_a_topic_the_import_is_unchanged():
+    for fields in (
+        imported("[Grammar] Hi.", topic=""),
+        imported("[Grammar] Hi.", cfg=Config(topic_badge=False)),
+    ):
+        assert (
+            fields["Front"] == '<span class="sm-label" data-label="Grammar"></span>Hi.'
+        )
+        assert "Topic" not in fields

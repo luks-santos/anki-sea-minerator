@@ -29,6 +29,7 @@
   "tts_voices": [],
   "tts_speed": 1.0,
   "highlight_color": "#2563eb",
+  "topic_badge": true,
   "audio": {
     "source": "system",
     "google": {"accent": "us"},

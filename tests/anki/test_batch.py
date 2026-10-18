@@ -250,3 +250,29 @@ def test_only_imported_fronts_not_in_the_collection_are_sent_to_record(col):
     texts = imported_speech(cards, Config(), CollectionAnkiClient(col))
 
     assert texts == ["Have you seen him?"]
+
+
+def test_batch_fills_the_topic_field(col):
+    ensure_notetype(col, "en_US", audio=True, topic=True)
+    block, sentences = make_pair("given up", ["She has given up."])
+    sentences = [
+        Sentence(s.text, s.highlight, topics=["present-perfect"]) for s in sentences
+    ]
+
+    results, _changes = create_batch(col, [(block, sentences)], Config(), "English")
+
+    assert col.get_note(results[0].note_id)["Topic"] == "Present perfect"
+
+
+def test_a_batch_without_topic_works_on_an_old_note_type(col, two_field_note_type):
+    ensure_notetype(col, "en_US")
+    block, sentences = make_pair("given up", ["She has given up."])
+    sentences = [
+        Sentence(s.text, s.highlight, topics=["present-perfect"]) for s in sentences
+    ]
+
+    results, _changes = create_batch(
+        col, [(block, sentences)], Config(topic_badge=False), "English"
+    )
+
+    assert results[0].created

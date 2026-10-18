@@ -49,6 +49,22 @@ def test_build_back_appends_topics_after_the_class():
     )
 
 
+def test_build_back_uses_the_sentence_s_own_translation():
+    word = WordBlock("has bought", "", ["comprou"], "verb", [])
+    back = build_back(
+        word,
+        ["present-perfect"],
+        highlight="have bought",
+        translation="comprei, já comprei",
+    )
+    assert back == "Have bought: comprei, já comprei (Verb · present-perfect)"
+
+
+def test_build_back_without_a_highlight_keeps_the_expression():
+    word = WordBlock("blizzard", "", ["nevasca"], "noun", [])
+    assert build_back(word, translation="nevasca") == "Blizzard: nevasca (Noun)"
+
+
 def test_build_back_preserves_internal_capitals():
     word = WordBlock(
         expression="NASA",

@@ -5,8 +5,25 @@ from seaminerator.core.tags import (
     RESERVED_TAGS,
     class_label,
     normalize_tag,
+    topic_label,
     topic_vocabulary,
 )
+
+
+def test_topic_label_reads_like_a_title():
+    assert topic_label(["present-perfect"]) == "Present perfect"
+    assert topic_label(["past-simple", "verb-to-be"]) == "Past simple · Verb to be"
+    assert topic_label(["present-perfect", "gerund"]) == "Present perfect · Gerund"
+    assert topic_label(["future-negative"]) == "Future negative"
+
+
+def test_topic_label_handles_the_collection_s_own_spelling():
+    assert topic_label(["Verb_To_Be"]) == "Verb to be"
+    assert topic_label(["gramática"]) == "Gramática"
+
+
+def test_topic_label_is_empty_without_topics():
+    assert topic_label([]) == ""
 
 
 def test_class_tags_are_the_canonical_list_in_order():

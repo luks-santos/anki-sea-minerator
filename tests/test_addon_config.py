@@ -8,6 +8,7 @@ from seaminerator.addon_config import (
     config_to_dict,
     display_config,
     with_native_language,
+    with_topic_badge,
 )
 from seaminerator.core.config import (
     AudioSettings,
@@ -424,3 +425,39 @@ def test_display_config_drops_only_unreadable_audio_settings():
 
     assert cfg.audio == AudioSettings()
     assert cfg.providers["gemini"].api_key == "kept"
+
+
+def test_the_topic_badge_is_on_by_default():
+    assert config_from_dict(shipped()).topic_badge is True
+    data = shipped()
+    del data["topic_badge"]
+    assert config_from_dict(data).topic_badge is True
+
+
+def test_a_topic_badge_that_is_not_true_or_false_is_refused():
+    data = shipped()
+    data["topic_badge"] = "yes"
+    with pytest.raises(ConfigError, match="topic_badge"):
+        config_from_dict(data)
+
+
+def test_a_declined_topic_badge_is_saved_and_read_back():
+    data = config_to_dict(Config(topic_badge=False))
+
+    assert data["topic_badge"] is False
+    assert config_from_dict(data).topic_badge is False
+
+
+def test_display_config_drops_an_unreadable_topic_badge_but_keeps_the_keys():
+    data = shipped()
+    data["providers"]["gemini"]["api_key"] = "k"
+    data["topic_badge"] = 5
+
+    cfg = display_config(data)
+
+    assert cfg.topic_badge is True
+    assert cfg.providers["gemini"].api_key == "k"
+
+
+def test_with_topic_badge_changes_only_that_key():
+    assert with_topic_badge({"x": 1}, False) == {"x": 1, "topic_badge": False}

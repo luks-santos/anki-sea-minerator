@@ -36,9 +36,16 @@ def test_mining_schema_lists_properties_in_generation_order():
     assert list(sentence_schema(schema)["properties"]) == [
         "text",
         "highlight",
+        "translation",
         "note",
         "topics",
     ]
+
+
+def test_each_sentence_carries_its_translation_after_the_highlight():
+    sentence = sentence_schema(mining_schema())
+    assert sentence["properties"]["translation"] == {"type": "string"}
+    assert "translation" in sentence["required"]
 
 
 def test_mining_schema_leaves_the_note_optional():

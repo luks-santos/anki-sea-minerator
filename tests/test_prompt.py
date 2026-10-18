@@ -2,6 +2,7 @@ import pytest
 
 from seaminerator.core.config import Config
 from seaminerator.core.languages import NATIVE_LANGUAGES
+from seaminerator.core.mining import build_request
 from seaminerator.core.prompt import (
     PROMPT_TEMPLATE,
     PT_BR_PROMPT,
@@ -61,6 +62,13 @@ def test_response_format_describes_every_field_without_a_portuguese_example():
         assert name in RESPONSE_FORMAT
     assert "grammar_class" not in RESPONSE_FORMAT
     assert "Desistir" not in RESPONSE_FORMAT
+
+
+def test_the_request_asks_for_each_sentence_s_own_translation():
+    # In the fixed part, so a prompt the user edited still asks for it.
+    for prompt in (default_prompt("pt-BR"), "Just mine."):
+        request = build_request(["has bought"], prompt, [])
+        assert "same subject, tense and number" in request.text
 
 
 def test_prompt_for_prefers_the_users_edit():
