@@ -9,9 +9,11 @@ from seaminerator.core.session import (
     import_status,
     parse_word_list,
     selected_sentences,
+    selection_on_lines,
     sentence_details,
     start_error,
     summarize,
+    toggle_highlights,
     toggle_selection,
     warning_lines,
 )
@@ -241,3 +243,31 @@ def test_warning_lines_name_each_created_card_with_a_warning():
     ]
 
     assert warning_lines(results) == ["a — audio not recorded, system voice used: x"]
+
+
+def test_highlighting_adds_the_selection_and_joins_touching_parts():
+    assert toggle_highlights([], [(5, 9)]) == [(5, 9)]
+    assert toggle_highlights([(0, 3)], [(3, 6)]) == [(0, 6)]
+    assert toggle_highlights([], [(0, 3), (10, 12)]) == [(0, 3), (10, 12)]
+
+
+def test_highlighting_an_already_highlighted_selection_removes_it():
+    assert toggle_highlights([(0, 10)], [(2, 5)]) == [(0, 2), (5, 10)]
+    assert toggle_highlights([(0, 3), (10, 12)], [(0, 3), (10, 12)]) == []
+
+
+def test_a_partly_highlighted_selection_becomes_fully_highlighted():
+    assert toggle_highlights([(0, 4)], [(2, 8)]) == [(0, 8)]
+
+
+def test_a_selection_counts_only_on_card_lines():
+    text = "You could try.\nVocê poderia.\n\nI could hear.\nEu ouvia."
+
+    # From "could" on the first front, through its back, to "I" on the
+    # second: the line breaks and the blank line between cards are left out.
+    assert selection_on_lines(text, 4, 31) == [(4, 14), (15, 28), (30, 31)]
+    assert selection_on_lines(text, 28, 30) == []
+
+
+def test_import_status_counts_the_cards_with_a_highlight():
+    assert import_status(9, [], highlighted=2) == "9 card(s) ready · 2 with a highlight"

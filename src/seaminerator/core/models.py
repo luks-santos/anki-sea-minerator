@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
@@ -28,6 +27,9 @@ class WordBlock:
 class ImportedCard:
     front: str
     back: str
+    # Parts to color, as (start, end) offsets into `front` and `back`.
+    highlights: tuple[tuple[int, int], ...] = ()
+    back_highlights: tuple[tuple[int, int], ...] = ()
 
 
 def _require_str(value: object, field_name: str) -> str:
@@ -106,20 +108,66 @@ def parse_mining_response(
         raise ValueError(f"malformed mining response: {exc}") from exc
 
 
-def parse_imported_text(text: str) -> tuple[list[ImportedCard], list[str]]:
-    stripped = text.strip()
-    if not stripped:
-        return [], []
+def _blocks(text: str) -> list[list[tuple[int, str]]]:
+    """Blank-line separated blocks, each a list of (offset, stripped line).
 
-    blocks = re.split(r"\n\s*\n", stripped)
+    The offset is where the stripped line starts in `text`, so a selection
+    made in the pasted text can be found again on the card it belongs to.
+    """
+    blocks: list[list[tuple[int, str]]] = []
+    current: list[tuple[int, str]] = []
+    offset = 0
+    for raw in text.splitlines(keepends=True):
+        line = raw.strip()
+        if line:
+            current.append((offset + len(raw) - len(raw.lstrip()), line))
+        elif current:
+            blocks.append(current)
+            current = []
+        offset += len(raw)
+    if current:
+        blocks.append(current)
+    return blocks
+
+
+def line_spans(text: str) -> list[tuple[int, int]]:
+    """Where each non-blank line's text sits in `text`, as (start, end)."""
+    return [
+        (start, start + len(line)) for block in _blocks(text) for start, line in block
+    ]
+
+
+def _clip(
+    highlights: Sequence[tuple[int, int]], start: int, end: int
+) -> tuple[tuple[int, int], ...]:
+    # Each highlight's part inside [start, end), made relative to start.
+    parts = ((max(a, start), min(b, end)) for a, b in highlights)
+    return tuple((a - start, b - start) for a, b in sorted(parts) if a < b)
+
+
+def parse_imported_text(
+    text: str, highlights: Sequence[tuple[int, int]] = ()
+) -> tuple[list[ImportedCard], list[str]]:
+    """Cards from pasted front/back blocks; `highlights` are offsets in `text`.
+
+    Each highlight goes to the front or back line it falls on; a part on a
+    line break or between cards is dropped.
+    """
     cards: list[ImportedCard] = []
     warnings: list[str] = []
-    for i, block in enumerate(blocks, start=1):
-        lines = [line.strip() for line in block.splitlines() if line.strip()]
-        if len(lines) != 2:
+    for i, block in enumerate(_blocks(text), start=1):
+        if len(block) != 2:
             warnings.append(
-                f"block {i} skipped: expected 2 lines (front, back), got {len(lines)}"
+                f"block {i} skipped: expected 2 lines (front, back), got {len(block)}"
             )
             continue
-        cards.append(ImportedCard(front=lines[0], back=lines[1]))
+        (start, front), (back_start, back) = block
+        cards.append(
+            ImportedCard(
+                front=front,
+                back=back,
+                highlights=_clip(highlights, start, start + len(front)),
+                back_highlights=_clip(highlights, back_start, back_start + len(back)),
+            )
+        )
     return cards, warnings

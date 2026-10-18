@@ -246,3 +246,50 @@ def test_prepare_import_accepts_a_class_name_as_topic():
     plan = prepare_import("F.\nB.", "phrasal verb")
     assert plan.topic == "phrasal-verb"
     assert plan.warnings == []
+
+
+def test_prepare_import_keeps_highlights_but_none_inside_the_label():
+    text = "[Grammar] You could try.\nVocê poderia."
+
+    plan = prepare_import(text, "", [(1, 8), (14, 19)])
+
+    assert plan.cards[0].highlights == ((14, 19),)
+
+
+def test_imported_front_colors_each_highlight_after_the_label():
+    front = imported_front("[Grammar] You could try.", [(14, 19)], "#2563eb")
+
+    assert front == (
+        '<span class="sm-label" data-label="Grammar"></span>'
+        'You <span style="color:#2563eb">could</span> try.'
+    )
+
+
+def test_imported_front_colors_a_front_without_a_label():
+    front = imported_front("The boy couldn't sleep.", [(8, 16)], "#f00")
+
+    assert front == 'The boy <span style="color:#f00">couldn\'t</span> sleep.'
+
+
+def test_create_imported_card_uses_the_configured_highlight_color():
+    anki = FakeAnki()
+    card = ImportedCard(front="I could hear.", back="Eu ouvia.", highlights=((2, 7),))
+
+    create_imported_card(card, Config(highlight_color="#123456"), "English", anki)
+
+    assert anki.notes[0]["fields"]["Front"] == (
+        'I <span style="color:#123456">could</span> hear.'
+    )
+
+
+def test_a_back_highlight_is_colored_and_keeps_the_topic_after_it():
+    anki = FakeAnki()
+    card = ImportedCard(
+        front="I could hear.", back="Eu ouvia.", back_highlights=((3, 8),)
+    )
+
+    create_imported_card(card, Config(), "English", anki, topic="past simple")
+
+    assert anki.notes[0]["fields"]["Back"] == (
+        'Eu <span style="color:#2563eb">ouvia</span>. (past-simple)'
+    )

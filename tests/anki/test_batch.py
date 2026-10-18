@@ -247,6 +247,6 @@ def test_only_imported_fronts_not_in_the_collection_are_sent_to_record(col):
     create_import_batch(col, [first], Config(), "Grammar", "")
     cards = [first, ImportedCard(front="[Grammar] Have you seen him?", back="Viu?")]
 
-    texts = imported_speech(cards, CollectionAnkiClient(col))
+    texts = imported_speech(cards, Config(), CollectionAnkiClient(col))
 
     assert texts == ["Have you seen him?"]

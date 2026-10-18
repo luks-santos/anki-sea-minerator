@@ -3,15 +3,22 @@ from __future__ import annotations
 from aqt import mw
 from aqt.operations import CollectionOp
 from aqt.qt import (
+    QColor,
     QComboBox,
     QDialog,
+    QFont,
     QFormLayout,
     QHBoxLayout,
+    QKeySequence,
     QLabel,
     QMessageBox,
     QPushButton,
+    QShortcut,
     Qt,
+    QTextCharFormat,
+    QTextCursor,
     QTextEdit,
+    QTextFormat,
     QVBoxLayout,
     QWidget,
 )
@@ -23,11 +30,20 @@ from ..anki.collection_client import CollectionAnkiClient
 from ..anki.notetype import NOTE_TYPE_NAME, ensure_notetype
 from ..core.audio.recording import RecordingRun, run_notes
 from ..core.flow import CardResult, ImportPlan, imported_speech, prepare_import
-from ..core.session import failure_lines, import_status, summarize, warning_lines
+from ..core.session import (
+    failure_lines,
+    import_status,
+    selection_on_lines,
+    summarize,
+    toggle_highlights,
+    warning_lines,
+)
 from ..core.tags import BASE_TOPICS
 from .recording import record_then
 
 ADDON = __name__.split(".")[0]
+# Marks highlighted text in the paste box, whatever color it is drawn in.
+_HIGHLIGHT = QTextFormat.Property.UserProperty + 1
 
 
 def open_importer(parent: QWidget | None = None) -> None:
@@ -62,13 +78,30 @@ class ImportDialog(QDialog):
         layout.addWidget(
             QLabel(
                 "Paste the cards: front line, back line, and a blank line "
-                "between cards."
+                "between cards. Select part of a card and press Ctrl+B to "
+                "highlight it."
             )
         )
         self._text = QTextEdit(self)
+        # Pasted text stays plain: only Ctrl+B adds a highlight.
         self._text.setAcceptRichText(False)
         self._text.textChanged.connect(self._refresh)
+        self._text.cursorPositionChanged.connect(self._type_plain)
         layout.addWidget(self._text, stretch=1)
+
+        self._highlight_format = QTextCharFormat()
+        self._highlight_format.setProperty(_HIGHLIGHT, True)
+        self._highlight_format.setForeground(QColor(self._cfg.highlight_color))
+        self._highlight_format.setFontWeight(QFont.Weight.DemiBold)
+        highlight_row = QHBoxLayout()
+        highlight_row.addStretch(1)
+        self._highlight_button = QPushButton("Highlight (Ctrl+B)", self)
+        self._highlight_button.clicked.connect(self._toggle_highlight)
+        highlight_row.addWidget(self._highlight_button)
+        layout.addLayout(highlight_row)
+        QShortcut(QKeySequence("Ctrl+B"), self._text).activated.connect(
+            self._toggle_highlight
+        )
 
         form = QFormLayout()
         self._topic_box = QComboBox(self)
@@ -99,7 +132,11 @@ class ImportDialog(QDialog):
         self._create_button.clicked.connect(self._create)
         footer.addWidget(self._create_button)
         # Enter belongs to the text box and the topic field, never to a button.
-        for button in (self._cancel_button, self._create_button):
+        for button in (
+            self._highlight_button,
+            self._cancel_button,
+            self._create_button,
+        ):
             button.setAutoDefault(False)
         layout.addLayout(footer)
 
@@ -119,11 +156,65 @@ class ImportDialog(QDialog):
 
     def _refresh(self) -> None:
         self._plan = prepare_import(
-            self._text.toPlainText(), self._topic_box.currentText()
+            self._text.toPlainText(),
+            self._topic_box.currentText(),
+            self._highlight_ranges(),
         )
-        self._status.setText(import_status(len(self._plan.cards), self._plan.warnings))
+        highlighted = sum(
+            1 for card in self._plan.cards if card.highlights or card.back_highlights
+        )
+        self._status.setText(
+            import_status(
+                len(self._plan.cards), self._plan.warnings, highlighted=highlighted
+            )
+        )
         self._create_button.setEnabled(bool(self._plan.cards) and not self._creating)
         self._cancel_button.setEnabled(not self._creating)
+
+    def _highlight_ranges(self) -> list[tuple[int, int]]:
+        # Document positions match toPlainText offsets: each block break is
+        # one character there and one "\n" here.
+        ranges: list[tuple[int, int]] = []
+        block = self._text.document().begin()
+        while block.isValid():
+            fragments = block.begin()
+            while not fragments.atEnd():
+                fragment = fragments.fragment()
+                if fragment.charFormat().boolProperty(_HIGHLIGHT):
+                    start = fragment.position()
+                    ranges.append((start, start + fragment.length()))
+                fragments += 1
+            block = block.next()
+        return ranges
+
+    def _toggle_highlight(self) -> None:
+        cursor = self._text.textCursor()
+        if not cursor.hasSelection():
+            return
+        # Line breaks and the blank lines between cards are left out.
+        selected = selection_on_lines(
+            self._text.toPlainText(), cursor.selectionStart(), cursor.selectionEnd()
+        )
+        if selected:
+            self._paint(toggle_highlights(self._highlight_ranges(), selected))
+
+    def _paint(self, ranges: list[tuple[int, int]]) -> None:
+        # One edit block, so Ctrl+Z undoes a highlight in one step.
+        cursor = QTextCursor(self._text.document())
+        cursor.beginEditBlock()
+        cursor.select(QTextCursor.SelectionType.Document)
+        cursor.setCharFormat(QTextCharFormat())
+        for start, end in ranges:
+            cursor.setPosition(start)
+            cursor.setPosition(end, QTextCursor.MoveMode.KeepAnchor)
+            cursor.mergeCharFormat(self._highlight_format)
+        cursor.endEditBlock()
+
+    def _type_plain(self) -> None:
+        # Text typed next to a highlight would take its format: only Ctrl+B
+        # highlights. With a selection, setCurrentCharFormat would restyle it.
+        if not self._text.textCursor().hasSelection():
+            self._text.setCurrentCharFormat(QTextCharFormat())
 
     def _create(self) -> None:
         if not self._plan.cards:
@@ -150,7 +241,7 @@ class ImportDialog(QDialog):
 
         cards = list(self._plan.cards)
         topic = self._plan.topic
-        texts = imported_speech(cards, CollectionAnkiClient(mw.col))
+        texts = imported_speech(cards, self._cfg, CollectionAnkiClient(mw.col))
 
         self._creating = True
         self._refresh()
